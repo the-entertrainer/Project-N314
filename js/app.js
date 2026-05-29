@@ -48,10 +48,13 @@ class App {
     const tickerInput = document.getElementById('ticker-input');
     if (!tickerInput) return;
 
-    const ticker = tickerInput.value.trim();
+    const rawTicker = tickerInput.value.trim();
 
     try {
-      this.validateInput(ticker);
+      const ticker = this.validateInput(rawTicker);
+      tickerInput.value = ticker;
+      UiManager.clearMetrics();
+      UiManager.hideCharts();
       await this.executeAnalysisPipeline(ticker);
     } catch (error) {
       UiManager.showToast(error.message, 'error');
@@ -62,7 +65,7 @@ class App {
     if (!ticker) {
       throw new Error('Please enter a ticker symbol');
     }
-    ApiFetcher.validateTicker(ticker);
+    return ApiFetcher.validateTicker(ticker);
   }
 
   async executeAnalysisPipeline(ticker) {
@@ -170,8 +173,10 @@ class App {
           throw new Error('Gemini API key not configured. Please set it in Settings.');
         }
 
-        const currentRsi = this.currentData.rsi[this.currentData.rsi.length - 1] || 50;
-        const currentMacd = this.currentData.macd.macd[this.currentData.macd.macd.length - 1] || 0;
+        const rsiArr = this.currentData.rsi || [];
+        const currentRsi = rsiArr.length > 0 ? (rsiArr[rsiArr.length - 1] || 50) : 50;
+        const macdArr = (this.currentData.macd && this.currentData.macd.macd) || [];
+        const currentMacd = macdArr.length > 0 ? (macdArr[macdArr.length - 1] || 0) : 0;
 
         const sentiment = await AiController.analyzeSentiment(
           ticker,
@@ -238,14 +243,16 @@ class App {
           currentPrice,
           change,
           changePercent,
-          rsi[rsi.length - 1] || 50,
+          rsi && rsi.length > 0 ? rsi[rsi.length - 1] : 50,
           mathTarget,
-          sentiment.investment_action,
-          sentiment.ai_confidence_interval,
-          sentiment.sentiment_score
+          sentiment ? sentiment.investment_action : 'HOLD',
+          sentiment ? sentiment.ai_confidence_interval : 0,
+          sentiment ? sentiment.sentiment_score : 0
         );
 
-        this.displaySentimentDetail(sentiment);
+        if (sentiment) {
+          this.displaySentimentDetail(sentiment);
+        }
 
         resolve();
       }, 0);
@@ -254,12 +261,12 @@ class App {
 
   displaySentimentDetail(sentiment) {
     const rationale = document.getElementById('rationale-container');
-    if (!rationale) return;
+    if (!rationale || !sentiment) return;
 
     rationale.innerHTML = `
       <div class="bg-gray-800 p-4 rounded mt-6">
         <h3 class="text-lg font-bold text-white mb-2">Strategic Rationale</h3>
-        <p class="text-gray-300">${sentiment.strategic_rationale}</p>
+        <p class="text-gray-300">${sentiment.strategic_rationale || 'No rationale available'}</p>
       </div>
     `;
   }

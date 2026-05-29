@@ -24,11 +24,11 @@ export class AiController {
             properties: {
               sentiment_score: {
                 type: 'NUMBER',
-                description: 'Score from -1.0 to 1.0'
+                description: 'Score from -1.0 (very bearish) to 1.0 (very bullish)'
               },
               ai_confidence_interval: {
                 type: 'NUMBER',
-                description: 'Decimal from 0.0 to 1.0'
+                description: 'Confidence decimal from 0.0 to 1.0'
               },
               investment_action: {
                 type: 'STRING',
@@ -36,7 +36,7 @@ export class AiController {
               },
               strategic_rationale: {
                 type: 'STRING',
-                description: 'Strictly 2 short sentences.'
+                description: 'Exactly 2 short sentences explaining the recommendation.'
               }
             },
             required: ['sentiment_score', 'ai_confidence_interval', 'investment_action', 'strategic_rationale']
@@ -46,32 +46,45 @@ export class AiController {
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestPayload)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestPayload),
+        signal: controller.signal
       });
+      clearTimeout(timeout);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 401) {
-          throw new Error('Invalid Gemini API key. Please check your credentials.');
+        const errorBody = await response.text().catch(() => '');
+        console.error('Gemini API error body:', errorBody);
+        if (response.status === 400) {
+          throw new Error('Gemini API request error. Check console for details.');
+        }
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('Invalid Gemini API key. Please check your credentials in Settings.');
         }
         if (response.status === 429) {
           throw new Error('Gemini API rate limit exceeded. Please wait before trying again.');
         }
-        throw new Error(`Gemini API error: ${response.status}`);
+        throw new Error(`Gemini API error: HTTP ${response.status}`);
       }
 
       const data = await response.json();
 
       if (!data.candidates || data.candidates.length === 0) {
+        console.error('Gemini response missing candidates:', data);
         throw new Error('No response from Gemini API');
       }
 
-      const content = data.candidates[0].content;
+      const candidate = data.candidates[0];
+      if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+        console.warn('Gemini finish reason:', candidate.finishReason);
+      }
+
+      const content = candidate.content;
       if (!content || !content.parts || content.parts.length === 0) {
         throw new Error('Invalid response format from Gemini API');
       }
@@ -82,6 +95,7 @@ export class AiController {
       try {
         parsedResponse = JSON.parse(textContent);
       } catch (e) {
+        console.error('Failed to parse Gemini JSON:', textContent);
         throw new Error('Failed to parse Gemini API JSON response');
       }
 
@@ -89,6 +103,9 @@ export class AiController {
 
       return parsedResponse;
     } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Gemini API request timed out (30s). Please try again.');
+      }
       if (error instanceof TypeError) {
         throw new Error('Network error connecting to Gemini API. Please check your connection.');
       }
@@ -97,19 +114,19 @@ export class AiController {
   }
 
   static _buildAnalysisPrompt(ticker, currentPrice, rsi, macd, mathTarget) {
-    const rsiStr = rsi !== null && !isNaN(rsi) ? rsi.toFixed(2) : 'N/A';
-    const macdStr = macd !== null && !isNaN(macd) ? macd.toFixed(4) : 'N/A';
-    const targetStr = mathTarget !== null && !isNaN(mathTarget) ? mathTarget.toFixed(2) : 'N/A';
+    const rsiStr = rsi !== null && rsi !== undefined && !isNaN(rsi) ? Number(rsi).toFixed(2) : 'N/A';
+    const macdStr = macd !== null && macd !== undefined && !isNaN(macd) ? Number(macd).toFixed(4) : 'N/A';
+    const targetStr = mathTarget !== null && mathTarget !== undefined && !isNaN(mathTarget) ? Number(mathTarget).toFixed(2) : 'N/A';
 
     return `You are an expert financial analyst with knowledge of market conditions through your training data. Analyze the following stock data for ${ticker} and provide a sentiment-based investment recommendation:
 
 Ticker: ${ticker}
-Current Price: $${currentPrice.toFixed(2)}
+Current Price: $${Number(currentPrice).toFixed(2)}
 RSI (14): ${rsiStr}
 MACD: ${macdStr}
 Mathematical Target: $${targetStr}
 
-Consider recent market conditions, industry trends, and the company's fundamental position. Based on technical indicators and market sentiment analysis, provide:
+Consider recent market conditions, industry trends, and the company's fundamental position. Based on technical indicators and market sentiment, provide:
 1. A sentiment score from -1.0 (very bearish) to 1.0 (very bullish)
 2. Your confidence level (0.0 to 1.0) in this assessment
 3. Investment action: BUY, HOLD, or SELL
