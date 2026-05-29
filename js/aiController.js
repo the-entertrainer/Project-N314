@@ -17,11 +17,6 @@ export class AiController {
             ]
           }
         ],
-        tools: [
-          {
-            googleSearch: {}
-          }
-        ],
         generationConfig: {
           responseMimeType: 'application/json',
           responseSchema: {
@@ -106,7 +101,7 @@ export class AiController {
     const macdStr = macd !== null && !isNaN(macd) ? macd.toFixed(4) : 'N/A';
     const targetStr = mathTarget !== null && !isNaN(mathTarget) ? mathTarget.toFixed(2) : 'N/A';
 
-    return `You are an expert financial analyst. Analyze the following stock data and provide a sentiment-based investment recommendation:
+    return `You are an expert financial analyst with knowledge of market conditions through your training data. Analyze the following stock data for ${ticker} and provide a sentiment-based investment recommendation:
 
 Ticker: ${ticker}
 Current Price: $${currentPrice.toFixed(2)}
@@ -114,9 +109,7 @@ RSI (14): ${rsiStr}
 MACD: ${macdStr}
 Mathematical Target: $${targetStr}
 
-Use web search to find recent news, earnings reports, and market sentiment for ${ticker}.
-
-Based on technical indicators and real-time news sentiment, provide:
+Consider recent market conditions, industry trends, and the company's fundamental position. Based on technical indicators and market sentiment analysis, provide:
 1. A sentiment score from -1.0 (very bearish) to 1.0 (very bullish)
 2. Your confidence level (0.0 to 1.0) in this assessment
 3. Investment action: BUY, HOLD, or SELL
