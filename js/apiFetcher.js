@@ -30,7 +30,13 @@ export class ApiFetcher {
         throw new Error(`Alpha Vantage API error: HTTP ${response.status}. Check console for details.`);
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (_) {
+        const rawText = await response.text().catch(() => 'unreadable');
+        throw new Error(`Alpha Vantage returned unexpected response: ${rawText.substring(0, 100)}`);
+      }
 
       if (data['Error Message']) {
         console.error('Alpha Vantage Error Message:', data['Error Message']);
@@ -39,12 +45,19 @@ export class ApiFetcher {
 
       if (data.Note) {
         console.warn('Alpha Vantage Note:', data.Note);
-        throw new Error('API rate limit exceeded. Free tier: 5 requests/minute, 500/day. Wait 60 seconds and try again.');
+        throw new Error('Alpha Vantage rate limit hit (5 req/min, 25 req/day on free tier). Wait 60 seconds or check your daily quota.');
+      }
+
+      if (data['Information']) {
+        console.warn('Alpha Vantage Information:', data['Information']);
+        throw new Error('Alpha Vantage daily limit reached (25 req/day free tier). Get a new key at https://www.alphavantage.co/ or wait 24 hours.');
       }
 
       if (!data['Time Series (Daily)']) {
-        console.error('No time series data in response:', Object.keys(data));
-        throw new Error(`No data found for ticker: ${ticker}. Verify the ticker symbol is correct.`);
+        const keys = Object.keys(data);
+        const hint = keys.length > 0 ? ` API returned: "${String(data[keys[0]]).substring(0, 100)}"` : '';
+        console.error('Alpha Vantage unexpected response:', JSON.stringify(data));
+        throw new Error(`No price data for ${ticker}.${hint}`);
       }
 
       const timeSeries = data['Time Series (Daily)'];
