@@ -22,99 +22,123 @@ export class UiManager {
   }
 
   static _renderPriceChart(dates, prices, sma50, sma200, forecast, forecastDates) {
-    const tracePrice = {
-      x: dates,
-      y: prices,
-      mode: 'lines',
-      name: 'Price',
-      line: { color: '#3b82f6', width: 2 }
-    };
+    try {
+      if (!dates || !prices || dates.length === 0 || prices.length === 0) {
+        console.error('Invalid price data for chart rendering');
+        this.showToast('Unable to render chart: invalid data', 'error');
+        return;
+      }
 
-    const traceSma50 = {
-      x: dates,
-      y: sma50,
-      mode: 'lines',
-      name: 'SMA 50',
-      line: { color: '#f97316', width: 1.5, dash: 'dash' }
-    };
+      const tracePrice = {
+        x: dates,
+        y: prices,
+        mode: 'lines',
+        name: 'Price',
+        line: { color: '#3b82f6', width: 2 }
+      };
 
-    const traceSma200 = {
-      x: dates,
-      y: sma200,
-      mode: 'lines',
-      name: 'SMA 200',
-      line: { color: '#ef4444', width: 1.5, dash: 'dash' }
-    };
+      const traceSma50 = {
+        x: dates,
+        y: sma50,
+        mode: 'lines',
+        name: 'SMA 50',
+        line: { color: '#f97316', width: 1.5, dash: 'dash' }
+      };
 
-    const traceForecast = {
-      x: forecastDates,
-      y: forecast,
-      mode: 'lines+markers',
-      name: 'Forecast (7d)',
-      line: { color: '#10b981', width: 2, dash: 'dot' },
-      marker: { size: 6 }
-    };
+      const traceSma200 = {
+        x: dates,
+        y: sma200,
+        mode: 'lines',
+        name: 'SMA 200',
+        line: { color: '#ef4444', width: 1.5, dash: 'dash' }
+      };
 
-    const data = [tracePrice, traceSma50, traceSma200, traceForecast];
+      const traceForecast = {
+        x: forecastDates || [],
+        y: forecast || [],
+        mode: 'lines+markers',
+        name: 'Forecast (7d)',
+        line: { color: '#10b981', width: 2, dash: 'dot' },
+        marker: { size: 6 }
+      };
 
-    const layout = {
-      title: 'Price Action & Forecasts',
-      xaxis: { title: 'Date' },
-      yaxis: { title: 'Price ($)' },
-      template: 'plotly_dark',
-      margin: { l: 50, r: 50, t: 50, b: 50 },
-      autosize: true,
-      hovermode: 'x unified'
-    };
+      const data = [tracePrice, traceSma50, traceSma200, traceForecast];
 
-    Plotly.newPlot('chart-price', data, layout, { responsive: true });
+      const layout = {
+        title: 'Price Action & Forecasts',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Price ($)' },
+        template: 'plotly_dark',
+        margin: { l: 50, r: 50, t: 50, b: 50 },
+        autosize: true,
+        hovermode: 'x unified'
+      };
+
+      Plotly.newPlot('chart-price', data, layout, { responsive: true });
+    } catch (error) {
+      console.error('Error rendering price chart:', error);
+      this.showToast('Error rendering chart. Check console for details.', 'error');
+    }
   }
 
   static _renderTechnicalIndicators(dates, rsi, macd) {
-    const traces = [];
+    try {
+      if (!dates || !rsi || !macd || dates.length === 0 || rsi.length === 0) {
+        console.error('Invalid indicator data for chart rendering');
+        this.showToast('Unable to render indicators: invalid data', 'error');
+        return;
+      }
 
-    const rsiTrace = {
-      x: dates,
-      y: rsi,
-      mode: 'lines',
-      name: 'RSI (14)',
-      line: { color: '#8b5cf6', width: 2 },
-      yaxis: 'y1'
-    };
-    traces.push(rsiTrace);
+      const traces = [];
 
-    const macdTrace = {
-      x: dates,
-      y: macd.macd,
-      mode: 'lines',
-      name: 'MACD',
-      line: { color: '#06b6d4', width: 1.5 },
-      yaxis: 'y2'
-    };
-    traces.push(macdTrace);
+      const rsiTrace = {
+        x: dates,
+        y: rsi,
+        mode: 'lines',
+        name: 'RSI (14)',
+        line: { color: '#8b5cf6', width: 2 },
+        yaxis: 'y1'
+      };
+      traces.push(rsiTrace);
 
-    const signalTrace = {
-      x: dates,
-      y: macd.signal,
-      mode: 'lines',
-      name: 'Signal',
-      line: { color: '#ec4899', width: 1.5, dash: 'dot' },
-      yaxis: 'y2'
-    };
-    traces.push(signalTrace);
+      if (macd && macd.macd && macd.signal) {
+        const macdTrace = {
+          x: dates,
+          y: macd.macd,
+          mode: 'lines',
+          name: 'MACD',
+          line: { color: '#06b6d4', width: 1.5 },
+          yaxis: 'y2'
+        };
+        traces.push(macdTrace);
 
-    const layout = {
-      title: 'Technical Indicators',
-      xaxis: { title: 'Date' },
-      yaxis: { title: 'RSI', side: 'left' },
-      yaxis2: { title: 'MACD', overlaying: 'y', side: 'right' },
-      template: 'plotly_dark',
-      margin: { l: 50, r: 50, t: 50, b: 50 },
-      autosize: true,
-      hovermode: 'x unified'
-    };
+        const signalTrace = {
+          x: dates,
+          y: macd.signal,
+          mode: 'lines',
+          name: 'Signal',
+          line: { color: '#ec4899', width: 1.5, dash: 'dot' },
+          yaxis: 'y2'
+        };
+        traces.push(signalTrace);
+      }
 
-    Plotly.newPlot('chart-indicators', traces, layout, { responsive: true });
+      const layout = {
+        title: 'Technical Indicators',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'RSI', side: 'left' },
+        yaxis2: { title: 'MACD', overlaying: 'y', side: 'right' },
+        template: 'plotly_dark',
+        margin: { l: 50, r: 50, t: 50, b: 50 },
+        autosize: true,
+        hovermode: 'x unified'
+      };
+
+      Plotly.newPlot('chart-indicators', traces, layout, { responsive: true });
+    } catch (error) {
+      console.error('Error rendering technical indicators:', error);
+      this.showToast('Error rendering indicators. Check console for details.', 'error');
+    }
   }
 
   static updateMetrics(ticker, currentPrice, change, changePercent, rsi, mathTarget, action, confidence, sentiment) {

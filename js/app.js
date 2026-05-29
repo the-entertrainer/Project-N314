@@ -52,6 +52,8 @@ class App {
 
     try {
       this.validateInput(ticker);
+      UiManager.clearMetrics();
+      UiManager.hideCharts();
       await this.executeAnalysisPipeline(ticker);
     } catch (error) {
       UiManager.showToast(error.message, 'error');
@@ -238,14 +240,16 @@ class App {
           currentPrice,
           change,
           changePercent,
-          rsi[rsi.length - 1] || 50,
+          rsi && rsi.length > 0 ? rsi[rsi.length - 1] : 50,
           mathTarget,
-          sentiment.investment_action,
-          sentiment.ai_confidence_interval,
-          sentiment.sentiment_score
+          sentiment ? sentiment.investment_action : 'HOLD',
+          sentiment ? sentiment.ai_confidence_interval : 0,
+          sentiment ? sentiment.sentiment_score : 0
         );
 
-        this.displaySentimentDetail(sentiment);
+        if (sentiment) {
+          this.displaySentimentDetail(sentiment);
+        }
 
         resolve();
       }, 0);
@@ -254,12 +258,12 @@ class App {
 
   displaySentimentDetail(sentiment) {
     const rationale = document.getElementById('rationale-container');
-    if (!rationale) return;
+    if (!rationale || !sentiment) return;
 
     rationale.innerHTML = `
       <div class="bg-gray-800 p-4 rounded mt-6">
         <h3 class="text-lg font-bold text-white mb-2">Strategic Rationale</h3>
-        <p class="text-gray-300">${sentiment.strategic_rationale}</p>
+        <p class="text-gray-300">${sentiment.strategic_rationale || 'No rationale available'}</p>
       </div>
     `;
   }
