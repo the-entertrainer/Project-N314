@@ -18,7 +18,7 @@ yarn.lock
 *~
 .DS_Store
 
-# Build outputs
+# Build outputs (keep css/output.css tracked for GitHub Pages)
 dist/
 build/
 out/

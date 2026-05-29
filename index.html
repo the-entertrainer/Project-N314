@@ -15,64 +15,14 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23000' width='100' height='100'/><text x='50' y='60' font-size='70' font-weight='bold' fill='%233b82f6' text-anchor='middle'>N</text></svg>" />
   <link rel="manifest" href="./manifest.json" />
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <link rel="stylesheet" href="./css/output.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-
-  <style>
-    * {
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
-    }
-
-    body {
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    }
-
-    input, textarea, select {
-      -webkit-user-select: text;
-      user-select: text;
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .animate-fadeIn {
-      animation: fadeIn 0.3s ease-in-out;
-    }
-
-    .plotly-container {
-      touch-action: pan-y;
-    }
-
-    button:active {
-      transform: scale(0.98);
-    }
-
-    @media (max-width: 640px) {
-      body {
-        padding-top: max(env(safe-area-inset-top), 0);
-        padding-left: max(env(safe-area-inset-left), 0);
-        padding-right: max(env(safe-area-inset-right), 0);
-        padding-bottom: max(env(safe-area-inset-bottom), 0);
-      }
-    }
-  </style>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 </head>
 <body class="bg-slate-950 text-white overflow-x-hidden">
   <div id="auth-gate" class="hidden"></div>
 
-  <header class="bg-gray-900 border-b border-gray-800 sticky top-0 z-10 safe-area-inset-top">
+  <header class="bg-gray-900 border-b border-gray-800 sticky top-0 z-10">
     <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
       <div class="flex items-center space-x-2">
         <i class="fas fa-chart-line text-blue-500 text-2xl"></i>
@@ -123,9 +73,11 @@
       <div class="bg-gray-900 p-6 rounded-lg border border-gray-800">
         <h2 class="text-xl font-bold text-white mb-4 flex items-center space-x-2">
           <i class="fas fa-chart-area text-blue-500"></i>
-          <span>Price Action & Forecasts</span>
+          <span>Price Action &amp; Forecasts</span>
         </h2>
-        <div id="chart-price" class="w-full min-h-96 bg-gray-800 rounded"></div>
+        <div id="chart-price" class="w-full min-h-96 bg-gray-800 rounded flex items-center justify-center">
+          <p class="text-gray-400 text-center py-8">Run analysis to view price chart</p>
+        </div>
       </div>
     </section>
 
@@ -135,14 +87,16 @@
           <i class="fas fa-wave-square text-purple-500"></i>
           <span>Technical Indicators</span>
         </h2>
-        <div id="chart-indicators" class="w-full min-h-96 bg-gray-800 rounded"></div>
+        <div id="chart-indicators" class="w-full min-h-96 bg-gray-800 rounded flex items-center justify-center">
+          <p class="text-gray-400 text-center py-8">Run analysis to view technical indicators</p>
+        </div>
       </div>
     </section>
 
     <section id="rationale-container" class="mb-8"></section>
 
     <footer class="text-center text-gray-500 text-sm py-4 border-t border-gray-800">
-      <p>N314 • Quantitative Trading Sentinel • Real-time Analysis & Forecasting</p>
+      <p>N314 &bull; Quantitative Trading Sentinel &bull; Real-time Analysis &amp; Forecasting</p>
       <p class="mt-2 text-gray-600 text-xs">
         API Keys are stored locally. Never share your API credentials. Always validate investment decisions independently.
       </p>
@@ -155,7 +109,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').catch(() => {
-          console.log('Service Worker registration not available (expected on first load)');
+          console.log('Service Worker registration not available in this context');
         });
       });
     }

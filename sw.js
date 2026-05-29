@@ -1,8 +1,9 @@
-const CACHE_NAME = 'n314-v1';
+const CACHE_NAME = 'n314-v2';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
+  './css/output.css',
   './js/app.js',
   './js/auth.js',
   './js/apiFetcher.js',
@@ -17,6 +18,7 @@ self.addEventListener('install', (event) => {
       return cache.addAll(ASSETS);
     })
   );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -29,7 +31,7 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
@@ -40,7 +42,9 @@ self.addEventListener('fetch', (event) => {
 
   if (
     event.request.url.includes('alphavantage.co') ||
-    event.request.url.includes('generativelanguage.googleapis.com')
+    event.request.url.includes('generativelanguage.googleapis.com') ||
+    event.request.url.includes('cdnjs.cloudflare.com') ||
+    event.request.url.includes('cdn.plot.ly')
   ) {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -52,7 +56,9 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+      return response || fetch(event.request).then((networkResponse) => {
+        return networkResponse;
+      });
     })
   );
 });

@@ -48,10 +48,11 @@ class App {
     const tickerInput = document.getElementById('ticker-input');
     if (!tickerInput) return;
 
-    const ticker = tickerInput.value.trim();
+    const rawTicker = tickerInput.value.trim();
 
     try {
-      this.validateInput(ticker);
+      const ticker = this.validateInput(rawTicker);
+      tickerInput.value = ticker;
       UiManager.clearMetrics();
       UiManager.hideCharts();
       await this.executeAnalysisPipeline(ticker);
@@ -64,7 +65,7 @@ class App {
     if (!ticker) {
       throw new Error('Please enter a ticker symbol');
     }
-    ApiFetcher.validateTicker(ticker);
+    return ApiFetcher.validateTicker(ticker);
   }
 
   async executeAnalysisPipeline(ticker) {
@@ -172,8 +173,10 @@ class App {
           throw new Error('Gemini API key not configured. Please set it in Settings.');
         }
 
-        const currentRsi = this.currentData.rsi[this.currentData.rsi.length - 1] || 50;
-        const currentMacd = this.currentData.macd.macd[this.currentData.macd.macd.length - 1] || 0;
+        const rsiArr = this.currentData.rsi || [];
+        const currentRsi = rsiArr.length > 0 ? (rsiArr[rsiArr.length - 1] || 50) : 50;
+        const macdArr = (this.currentData.macd && this.currentData.macd.macd) || [];
+        const currentMacd = macdArr.length > 0 ? (macdArr[macdArr.length - 1] || 0) : 0;
 
         const sentiment = await AiController.analyzeSentiment(
           ticker,
