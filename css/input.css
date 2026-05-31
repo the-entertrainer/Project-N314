@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    @apply bg-surface-900 text-white;
+    -webkit-tap-highlight-color: transparent;
+  }
+  input, select, textarea, button {
+    @apply outline-none;
+  }
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-800;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-600 rounded;
+  }
+}
+
+@layer utilities {
+  .tab-content {
+    scroll-behavior: smooth;
+  }
+}

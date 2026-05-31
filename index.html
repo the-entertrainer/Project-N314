@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Nifty Intel — Indian Market Dashboard</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Nifty Intel" />
+
+  <!-- Tailwind compiled CSS -->
+  <link rel="stylesheet" href="./css/output.css" />
+
+  <!-- CDN libs -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" defer></script>
+
+  <style>
+    html, body { height: 100%; overflow: hidden; background: #0f172a; }
+    :root { --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
+    #app { height: 100%; display: flex; flex-direction: column; padding-top: var(--safe-top); }
+    .tab-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .tab-active { color: #3b82f6; border-color: #3b82f6; }
+    .tab-inactive { color: #9ca3af; border-color: transparent; }
+    .btn-primary { background: #3b82f6; color: white; transition: background 0.15s; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; transition: background 0.15s; }
+    .btn-secondary:hover { background: #334155; }
+    .surface-750 { background: #1a2535; }
+    @media (prefers-color-scheme: light) { html { color-scheme: dark; } }
+  </style>
+</head>
+<body class="bg-surface-900 text-white font-sans">
+
+  <!-- AUTH GATE -->
+  <div id="auth-gate" class="fixed inset-0 z-50 bg-surface-900 flex items-center justify-center p-6">
+    <div class="w-full max-w-sm">
+      <div class="text-center mb-8">
+        <div class="text-5xl mb-3">📈</div>
+        <h1 class="text-2xl font-bold text-white">Nifty Intel</h1>
+        <p class="text-surface-400 mt-1">Indian Market Intelligence Dashboard</p>
+      </div>
+      <form id="passcode-form" class="space-y-4">
+        <div>
+          <input id="passcode-input" type="password" placeholder="Enter passcode"
+            class="w-full bg-surface-800 border border-surface-600 rounded-xl px-4 py-3 text-white placeholder-surface-500 focus:border-accent focus:outline-none text-center text-lg tracking-widest" />
+        </div>
+        <p id="passcode-error" class="hidden text-red-400 text-sm text-center"></p>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl font-semibold text-base">Enter Dashboard</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app" class="hidden">
+
+    <!-- HEADER -->
+    <header class="bg-surface-900 border-b border-surface-700 flex-shrink-0 px-4 py-3">
+      <div class="flex items-center justify-between max-w-7xl mx-auto">
+        <div class="flex items-center gap-2">
+          <span class="text-accent font-bold text-xl">📈</span>
+          <h1 class="font-bold text-white text-lg leading-none">Nifty Intel</h1>
+          <span id="fetch-status-dot" class="w-2 h-2 rounded-full bg-surface-600 ml-1" title="Data status"></span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="screener-count" class="text-xs text-surface-400 hidden sm:block"></span>
+          <button id="btn-refresh" class="text-surface-400 hover:text-white transition-colors text-sm px-2 py-1 rounded border border-surface-700 hover:border-surface-500">↻ Refresh</button>
+          <button id="btn-export" class="text-surface-400 hover:text-white transition-colors text-sm px-2 py-1 rounded border border-surface-700 hover:border-surface-500">⬇ Excel</button>
+          <button id="btn-settings" class="text-surface-400 hover:text-white transition-colors">⚙</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- DESKTOP TAB BAR -->
+    <nav class="hidden sm:flex bg-surface-800 border-b border-surface-700 flex-shrink-0">
+      <div class="flex max-w-7xl mx-auto w-full">
+        <button data-tab="screener" class="tab-btn tab-inactive flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors">
+          📊 Screener
+        </button>
+        <button data-tab="longterm" class="tab-btn tab-inactive flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors">
+          🌱 Long-Term
+        </button>
+        <button data-tab="postmarket" class="tab-btn tab-inactive flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors">
+          🌙 Post-Market
+        </button>
+        <button data-tab="strategy" class="tab-btn tab-inactive flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors">
+          🎯 Strategy
+        </button>
+        <button data-tab="fno" class="tab-btn tab-inactive flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors">
+          📐 F&O
+        </button>
+        <button data-tab="watchlist" class="tab-btn tab-inactive flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors">
+          ⭐ Watchlist
+        </button>
+      </div>
+    </nav>
+
+    <!-- TAB PANELS -->
+    <main class="tab-content flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4">
+
+      <!-- SCREENER TAB -->
+      <div id="tab-screener" class="tab-panel hidden py-3">
+        <!-- Filters row -->
+        <div class="flex flex-wrap gap-2 mb-3 items-center">
+          <input id="screener-search" type="text" placeholder="Search ticker or name..."
+            class="bg-surface-800 border border-surface-600 rounded-lg px-3 py-1.5 text-sm text-white placeholder-surface-500 focus:border-accent focus:outline-none w-48" />
+          <select id="filter-sector" class="bg-surface-800 border border-surface-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none">
+            <option value="all">All Sectors</option>
+          </select>
+          <select id="filter-grade" class="bg-surface-800 border border-surface-600 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none">
+            <option value="all">All Grades</option>
+            <option>AAA</option><option>AA</option><option>A</option>
+            <option>BBB</option><option>BB</option><option>B</option><option>C</option>
+          </select>
+          <label class="flex items-center gap-1.5 text-sm text-surface-300 cursor-pointer">
+            <input id="filter-fno" type="checkbox" class="accent-accent" /> F&O Only
+          </label>
+          <label class="flex items-center gap-1.5 text-sm text-surface-300 cursor-pointer">
+            <input id="filter-inst" type="checkbox" class="accent-accent" /> Institutional
+          </label>
+        </div>
+        <div id="screener-content"></div>
+      </div>
+
+      <!-- LONG-TERM TAB -->
+      <div id="tab-longterm" class="tab-panel hidden py-3">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white">Long-Term Equity Picks</h2>
+            <p class="text-xs text-surface-400">AI-curated 25-stock wealth creation portfolio</p>
+          </div>
+          <button id="btn-generate-longterm" class="btn-primary px-4 py-2 rounded-lg text-sm font-semibold">
+            🌱 Refresh Long-Term Analysis
+          </button>
+        </div>
+        <div id="longterm-list"></div>
+      </div>
+
+      <!-- POST-MARKET TAB -->
+      <div id="tab-postmarket" class="tab-panel hidden py-3">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold text-white">Post-Market Analysis</h2>
+          <button id="btn-generate-postmarket" class="btn-primary px-4 py-2 rounded-lg text-sm font-semibold">
+            🌙 Generate AI Analysis
+          </button>
+        </div>
+        <div id="postmarket-summary" class="mb-6"></div>
+        <div id="postmarket-log" class="space-y-3 mb-6"></div>
+        <div class="bg-surface-800 rounded-xl p-4">
+          <h3 class="text-sm font-semibold text-surface-300 mb-2">Quick Notes</h3>
+          <textarea id="postmarket-notes" rows="3" placeholder="Add today's observations... (auto-saves on blur)"
+            class="w-full bg-surface-700 border border-surface-600 rounded-lg px-3 py-2 text-sm text-white placeholder-surface-500 focus:border-accent focus:outline-none resize-none"></textarea>
+        </div>
+      </div>
+
+      <!-- STRATEGY TAB -->
+      <div id="tab-strategy" class="tab-panel hidden py-3">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white">Next-Day Strategy</h2>
+            <p class="text-xs text-surface-400">Market scenarios + pivot levels</p>
+          </div>
+          <div class="flex gap-2">
+            <button id="btn-refresh-fno" class="btn-secondary px-3 py-2 rounded-lg text-sm">↻ Refresh Data</button>
+            <button id="btn-generate-strategy" class="btn-primary px-4 py-2 rounded-lg text-sm font-semibold">🎯 Generate Strategy</button>
+          </div>
+        </div>
+        <div id="strategy-content"></div>
+      </div>
+
+      <!-- F&O TAB -->
+      <div id="tab-fno" class="tab-panel hidden py-3">
+        <h2 class="text-lg font-bold text-white mb-4">F&O Strategy & Positions</h2>
+
+        <!-- Strategy Builder -->
+        <div class="bg-surface-800 rounded-xl p-5 mb-6 border border-surface-700">
+          <h3 class="font-semibold text-surface-200 mb-4">Strategy Builder</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div>
+              <label class="text-xs text-surface-400 mb-1 block">Underlying</label>
+              <select id="fno-underlying" class="w-full bg-surface-700 border border-surface-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none">
+                <option>NIFTY</option>
+                <option>BANKNIFTY</option>
+                <option>FINNIFTY</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-surface-400 mb-1 block">Strategy</label>
+              <select id="fno-strategy-type" class="w-full bg-surface-700 border border-surface-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none">
+                <option value="IRON_CONDOR">Iron Condor</option>
+                <option value="BULL_PUT_SPREAD">Bull Put Spread</option>
+                <option value="BEAR_CALL_SPREAD">Bear Call Spread</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-surface-400 mb-1 block">Expiry</label>
+              <input id="fno-expiry" type="date" class="w-full bg-surface-700 border border-surface-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none" />
+            </div>
+            <div class="flex items-end">
+              <button id="btn-fno-generate" class="w-full btn-primary py-2 rounded-lg text-sm font-semibold">Generate</button>
+            </div>
+          </div>
+          <div id="fno-strategy-result"></div>
+        </div>
+
+        <!-- Open Positions -->
+        <div class="bg-surface-800 rounded-xl p-5 border border-surface-700">
+          <h3 class="font-semibold text-surface-200 mb-4">Open Positions Tracker</h3>
+          <div id="fno-positions" class="overflow-x-auto"></div>
+        </div>
+      </div>
+
+      <!-- WATCHLIST TAB -->
+      <div id="tab-watchlist" class="tab-panel hidden py-3">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold text-white">Watchlist</h2>
+          <div class="relative">
+            <input id="watchlist-search" type="text" placeholder="Add stock..."
+              class="bg-surface-800 border border-surface-600 rounded-lg px-3 py-1.5 text-sm text-white placeholder-surface-500 focus:border-accent focus:outline-none w-44" />
+            <div id="watchlist-search-results" class="absolute right-0 top-full mt-1 bg-surface-800 border border-surface-600 rounded-lg shadow-xl z-20 w-80 max-h-64 overflow-y-auto"></div>
+          </div>
+        </div>
+        <div id="watchlist-content"></div>
+      </div>
+
+    </main><!-- /main -->
+
+    <!-- MOBILE BOTTOM NAV -->
+    <nav class="sm:hidden flex-shrink-0 bg-surface-800 border-t border-surface-700 flex" style="padding-bottom: var(--safe-bottom)">
+      <button data-tab="screener" class="tab-btn tab-inactive flex-1 flex flex-col items-center justify-center py-2.5 text-xs gap-0.5">
+        <span class="text-base">📊</span>Screener
+      </button>
+      <button data-tab="longterm" class="tab-btn tab-inactive flex-1 flex flex-col items-center justify-center py-2.5 text-xs gap-0.5">
+        <span class="text-base">🌱</span>Long-Term
+      </button>
+      <button data-tab="postmarket" class="tab-btn tab-inactive flex-1 flex flex-col items-center justify-center py-2.5 text-xs gap-0.5">
+        <span class="text-base">🌙</span>Post-Mkt
+      </button>
+      <button data-tab="strategy" class="tab-btn tab-inactive flex-1 flex flex-col items-center justify-center py-2.5 text-xs gap-0.5">
+        <span class="text-base">🎯</span>Strategy
+      </button>
+      <button data-tab="fno" class="tab-btn tab-inactive flex-1 flex flex-col items-center justify-center py-2.5 text-xs gap-0.5">
+        <span class="text-base">📐</span>F&O
+      </button>
+      <button data-tab="watchlist" class="tab-btn tab-inactive flex-1 flex flex-col items-center justify-center py-2.5 text-xs gap-0.5">
+        <span class="text-base">⭐</span>Watch
+      </button>
+    </nav>
+
+  </div><!-- /app -->
+
+  <!-- SETTINGS MODAL -->
+  <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="bg-surface-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-lg font-bold text-white">Settings</h2>
+        <button id="settings-close" class="text-surface-400 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="text-sm font-medium text-surface-300 mb-2 block">Gemini API Key</label>
+          <input id="gemini-key-input" type="password" placeholder="AIza..."
+            class="w-full bg-surface-700 border border-surface-600 rounded-lg px-4 py-3 text-white placeholder-surface-500 focus:border-accent focus:outline-none text-sm font-mono" />
+          <p class="text-xs text-surface-500 mt-1.5">Required for AI narratives, long-term analysis, strategy generation, and F&O data.</p>
+        </div>
+        <div class="bg-surface-700 rounded-lg p-3 text-xs text-surface-400">
+          <p class="font-semibold text-surface-300 mb-1">What works without API key:</p>
+          <ul class="space-y-0.5 list-disc list-inside">
+            <li>Full screener with scoring</li>
+            <li>F&O strategy math (options pricing)</li>
+            <li>Technical analysis (RSI, MACD, S/R)</li>
+            <li>Excel export</li>
+          </ul>
+        </div>
+      </div>
+      <button id="settings-save" class="btn-primary w-full py-3 rounded-xl font-semibold mt-5">Save Settings</button>
+    </div>
+  </div>
+
+  <!-- GENERIC MODAL placeholder -->
+  <div id="generic-modal" class="hidden"></div>
+
+  <!-- App JS (ES Modules) -->
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

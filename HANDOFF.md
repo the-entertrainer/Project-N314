@@ -37,7 +37,7 @@ These constraints shaped every architectural decision and MUST be preserved:
 ## 3. Tech Stack
 
 | Layer | Technology | Version / Source |
-|-------|-----------|------------------|
+|-------|-----------|-----------------|
 | Frontend language | Vanilla JavaScript | ES6 Modules (no transpilation) |
 | Styling | Tailwind CSS | v3.4.x — compiled to `css/output.css` |
 | Charts | Plotly.js | 2.35.2 via CDN |
@@ -268,6 +268,15 @@ Below is the **exact final content** of every file in the repository.
 </body>
 </html>
 ```
+
+**Key HTML notes:**
+- `<div id="auth-gate" class="hidden">` — initially hidden; `auth.js` populates and shows it if not authenticated
+- `viewport-fit=cover` + `maximum-scale=1.0` — prevents iOS zoom and respects notch
+- `apple-mobile-web-app-capable` + `black-translucent` status bar — required for true full-screen PWA on iOS
+- Icons use inline data URIs (no external icon files needed)
+- CSS loaded from compiled `./css/output.css` (not CDN Tailwind, not inline `<style>`)
+- Plotly loaded synchronously via CDN before any module scripts execute
+- Service Worker registered via inline script after the module scripts
 
 ---
 
@@ -964,6 +973,15 @@ export class ApiFetcher {
 }
 ```
 
+**Alpha Vantage API notes:**
+- Endpoint: `TIME_SERIES_DAILY` with `outputsize=full` (returns up to 20 years of daily data)
+- The response key is literally `"Time Series (Daily)"` (note the space and parentheses)
+- Each entry has keys like `"4. close"` — always access with bracket notation
+- Free tier limits: 5 requests/minute, 25 requests/day
+- Rate limit responses come back as HTTP 200 with a `"Note"` key (not a 429 status) — this must be checked explicitly
+- Daily quota exceeded responses come back as HTTP 200 with an `"Information"` key — also check explicitly
+- A 15-second `AbortController` timeout is applied to all fetch calls
+
 ---
 
 ### 7.5 `js/mathEngine.js`
@@ -1136,6 +1154,13 @@ export class MathEngine {
 }
 ```
 
+**MathEngine critical details:**
+- **SMA**: Pads leading values with `null` for Plotly alignment. Period 50 means first 49 values are `null`.
+- **RSI**: Uses Wilder's smoothing (exponential smoothing, not SMA). First `period` values are `null`. Handles zero-loss edge case.
+- **MACD**: Computes EMA of the filtered non-null MACD values for signal line, then re-maps back to full-length array with `null` padding. Returns `{ macd, signal, histogram }`.
+- **Forecast**: Linear regression over the last 30 prices, projects 7 days forward. Output is bounded to ±20% of the last close price to prevent unrealistic forecasts.
+- **MathTarget**: RSI acts as a dynamic weight — oversold (RSI < 30) gives less weight to forecast (0.3), overbought (RSI > 70) gives more weight (0.7).
+
 ---
 
 ### 7.6 `js/aiController.js`
@@ -1298,69 +1323,838 @@ Return ONLY valid JSON matching the required schema.`;
 }
 ```
 
+**Gemini API critical notes:**
+- Model: `gemini-2.5-flash` (NOT `gemini-pro`, NOT `gemini-1.5-flash`)
+- API endpoint: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=API_KEY`
+- Uses `responseMimeType: 'application/json'` and `responseSchema` in `generationConfig` to enforce structured output
+- **Important**: Do NOT add `"tools": [{"googleSearch": {}}]` to the payload. The Search Grounding tool is incompatible with `responseMimeType: 'application/json'` — it causes a 400 error. This was a bug that was explicitly fixed during development.
+- Response structure: `data.candidates[0].content.parts[0].text` — this is a JSON string that must be `JSON.parse()`d
+- 30-second timeout via AbortController
+- Validation ensures all four required fields are present and have valid types/ranges
+
 ---
 
 ### 7.7 `js/uiManager.js`
 
-See full implementation in the original source — covers `renderCharts()`, `_renderPriceChart()`, `_renderTechnicalIndicators()`, `updateMetrics()`, `updateLoadingState()`, `showToast()`, `clearMetrics()`, and `hideCharts()` with Plotly dual-axis layout for RSI (left) and MACD (right).
+```javascript
+export class UiManager {
+  static initializeChart() {
+    const chartPrice = document.getElementById('chart-price');
+    const chartIndicators = document.getElementById('chart-indicators');
+    if (chartPrice) chartPrice.innerHTML = '<p class="text-gray-400 text-center py-8">Run analysis to view price chart</p>';
+    if (chartIndicators) chartIndicators.innerHTML = '<p class="text-gray-400 text-center py-8">Run analysis to view technical indicators</p>';
+  }
+
+  static renderCharts(dates, prices, sma50, sma200, rsi, macd, forecast, forecastDates) {
+    if (typeof Plotly === 'undefined') {
+      this.showToast('Plotly library not loaded', 'error');
+      return;
+    }
+
+    this._renderPriceChart(dates, prices, sma50, sma200, forecast, forecastDates);
+    this._renderTechnicalIndicators(dates, rsi, macd);
+  }
+
+  static _renderPriceChart(dates, prices, sma50, sma200, forecast, forecastDates) {
+    try {
+      if (!dates || !prices || dates.length === 0 || prices.length === 0) {
+        console.error('Invalid price data for chart rendering');
+        this.showToast('Unable to render chart: invalid data', 'error');
+        return;
+      }
+
+      const tracePrice = {
+        x: dates,
+        y: prices,
+        mode: 'lines',
+        name: 'Price',
+        line: { color: '#3b82f6', width: 2 }
+      };
+
+      const traceSma50 = {
+        x: dates,
+        y: sma50 || [],
+        mode: 'lines',
+        name: 'SMA 50',
+        line: { color: '#f97316', width: 1.5, dash: 'dash' }
+      };
+
+      const traceSma200 = {
+        x: dates,
+        y: sma200 || [],
+        mode: 'lines',
+        name: 'SMA 200',
+        line: { color: '#ef4444', width: 1.5, dash: 'dash' }
+      };
+
+      const traceForecast = {
+        x: forecastDates || [],
+        y: forecast || [],
+        mode: 'lines+markers',
+        name: 'Forecast (7d)',
+        line: { color: '#10b981', width: 2, dash: 'dot' },
+        marker: { size: 6 }
+      };
+
+      const data = [tracePrice, traceSma50, traceSma200, traceForecast];
+
+      const layout = {
+        title: { text: 'Price Action & Forecasts', font: { color: '#ffffff' } },
+        paper_bgcolor: '#1f2937',
+        plot_bgcolor: '#1f2937',
+        xaxis: { title: 'Date', color: '#9ca3af', gridcolor: '#374151' },
+        yaxis: { title: 'Price ($)', color: '#9ca3af', gridcolor: '#374151' },
+        legend: { font: { color: '#9ca3af' } },
+        font: { color: '#9ca3af' },
+        margin: { l: 55, r: 20, t: 50, b: 50 },
+        autosize: true,
+        hovermode: 'x unified'
+      };
+
+      Plotly.newPlot('chart-price', data, layout, { responsive: true, displayModeBar: false });
+    } catch (error) {
+      console.error('Error rendering price chart:', error);
+      this.showToast('Error rendering chart. Check console for details.', 'error');
+    }
+  }
+
+  static _renderTechnicalIndicators(dates, rsi, macd) {
+    try {
+      if (!dates || !rsi || dates.length === 0 || rsi.length === 0) {
+        console.error('Invalid indicator data for chart rendering');
+        this.showToast('Unable to render indicators: invalid data', 'error');
+        return;
+      }
+
+      const traces = [];
+
+      traces.push({
+        x: dates,
+        y: rsi,
+        mode: 'lines',
+        name: 'RSI (14)',
+        line: { color: '#8b5cf6', width: 2 },
+        yaxis: 'y1'
+      });
+
+      if (macd && Array.isArray(macd.macd) && macd.macd.length > 0) {
+        traces.push({
+          x: dates,
+          y: macd.macd,
+          mode: 'lines',
+          name: 'MACD',
+          line: { color: '#06b6d4', width: 1.5 },
+          yaxis: 'y2'
+        });
+
+        if (Array.isArray(macd.signal) && macd.signal.length > 0) {
+          traces.push({
+            x: dates,
+            y: macd.signal,
+            mode: 'lines',
+            name: 'Signal',
+            line: { color: '#ec4899', width: 1.5, dash: 'dot' },
+            yaxis: 'y2'
+          });
+        }
+
+        if (Array.isArray(macd.histogram) && macd.histogram.length > 0) {
+          traces.push({
+            x: dates,
+            y: macd.histogram,
+            type: 'bar',
+            name: 'Histogram',
+            marker: { color: macd.histogram.map(v => v !== null && v >= 0 ? '#10b981' : '#ef4444') },
+            yaxis: 'y2',
+            opacity: 0.6
+          });
+        }
+      }
+
+      const layout = {
+        title: { text: 'Technical Indicators', font: { color: '#ffffff' } },
+        paper_bgcolor: '#1f2937',
+        plot_bgcolor: '#1f2937',
+        xaxis: { title: 'Date', color: '#9ca3af', gridcolor: '#374151' },
+        yaxis: {
+          title: 'RSI',
+          color: '#9ca3af',
+          gridcolor: '#374151',
+          range: [0, 100],
+          side: 'left'
+        },
+        yaxis2: {
+          title: 'MACD',
+          color: '#9ca3af',
+          gridcolor: '#374151',
+          overlaying: 'y',
+          side: 'right',
+          showgrid: false
+        },
+        legend: { font: { color: '#9ca3af' } },
+        font: { color: '#9ca3af' },
+        margin: { l: 55, r: 55, t: 50, b: 50 },
+        autosize: true,
+        hovermode: 'x unified',
+        shapes: [
+          { type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 70, y1: 70, line: { color: '#ef4444', width: 1, dash: 'dot' } },
+          { type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 30, y1: 30, line: { color: '#10b981', width: 1, dash: 'dot' } }
+        ]
+      };
+
+      Plotly.newPlot('chart-indicators', traces, layout, { responsive: true, displayModeBar: false });
+    } catch (error) {
+      console.error('Error rendering technical indicators:', error);
+      this.showToast('Error rendering indicators. Check console for details.', 'error');
+    }
+  }
+
+  static updateMetrics(ticker, currentPrice, change, changePercent, rsi, mathTarget, action, confidence, sentimentScore) {
+    const metricsContainer = document.getElementById('metrics-container');
+    if (!metricsContainer) return;
+
+    const safeRsi = typeof rsi === 'number' && !isNaN(rsi) ? rsi : 50;
+    const safeMathTarget = typeof mathTarget === 'number' && !isNaN(mathTarget) ? mathTarget : currentPrice;
+    const safeConfidence = typeof confidence === 'number' && !isNaN(confidence) ? confidence : 0;
+    const safeSentiment = typeof sentimentScore === 'number' && !isNaN(sentimentScore) ? sentimentScore : 0;
+    const safeAction = action || 'HOLD';
+
+    const changeColor = change >= 0 ? 'text-green-400' : 'text-red-400';
+    const actionColor = safeAction === 'BUY' ? 'bg-green-500' : safeAction === 'SELL' ? 'bg-red-500' : 'bg-yellow-500';
+    const upsidePct = ((safeMathTarget - currentPrice) / currentPrice * 100).toFixed(1);
+
+    metricsContainer.innerHTML = `
+      <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <p class="text-gray-400 text-sm">Ticker</p>
+          <p class="text-2xl font-bold text-white">${ticker}</p>
+        </div>
+        <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <p class="text-gray-400 text-sm">Price</p>
+          <p class="text-2xl font-bold text-white">$${currentPrice.toFixed(2)}</p>
+          <p class="${changeColor} text-sm mt-1">${change >= 0 ? '+' : ''}${change.toFixed(2)} (${changePercent.toFixed(2)}%)</p>
+        </div>
+        <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <p class="text-gray-400 text-sm">RSI (14)</p>
+          <p class="text-2xl font-bold text-white">${safeRsi.toFixed(1)}</p>
+          <p class="text-gray-400 text-xs mt-1">${safeRsi > 70 ? 'Overbought' : safeRsi < 30 ? 'Oversold' : 'Neutral'}</p>
+        </div>
+        <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <p class="text-gray-400 text-sm">Math Target</p>
+          <p class="text-2xl font-bold text-white">$${safeMathTarget.toFixed(2)}</p>
+          <p class="text-gray-400 text-xs mt-1">${upsidePct}% vs current</p>
+        </div>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <p class="text-gray-400 text-sm">AI Recommendation</p>
+          <div class="mt-2">
+            <span class="${actionColor} text-white px-4 py-2 rounded font-bold text-lg inline-block">${safeAction}</span>
+          </div>
+        </div>
+        <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <p class="text-gray-400 text-sm">AI Confidence</p>
+          <p class="text-2xl font-bold text-white">${(safeConfidence * 100).toFixed(0)}%</p>
+          <div class="w-full bg-gray-700 rounded-full h-2 mt-2">
+            <div class="bg-blue-500 h-2 rounded-full transition-all" style="width: ${Math.min(safeConfidence * 100, 100)}%"></div>
+          </div>
+        </div>
+        <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+          <p class="text-gray-400 text-sm">Sentiment Score</p>
+          <p class="text-2xl font-bold ${safeSentiment >= 0 ? 'text-green-400' : 'text-red-400'}">${safeSentiment >= 0 ? '+' : ''}${safeSentiment.toFixed(2)}</p>
+          <p class="text-gray-400 text-xs mt-1">${safeSentiment > 0.5 ? 'Bullish' : safeSentiment < -0.5 ? 'Bearish' : 'Neutral'}</p>
+        </div>
+      </div>
+    `;
+  }
+
+  static updateLoadingState(isLoading) {
+    const button = document.getElementById('analyze-btn');
+    const spinner = document.getElementById('loading-spinner');
+
+    if (!button || !spinner) return;
+
+    if (isLoading) {
+      button.disabled = true;
+      button.classList.add('opacity-50', 'cursor-not-allowed');
+      spinner.classList.remove('hidden');
+    } else {
+      button.disabled = false;
+      button.classList.remove('opacity-50', 'cursor-not-allowed');
+      spinner.classList.add('hidden');
+    }
+  }
+
+  static showToast(message, type = 'info') {
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+      toastContainer = document.createElement('div');
+      toastContainer.id = 'toast-container';
+      toastContainer.className = 'fixed top-4 right-4 z-50 space-y-2';
+      document.body.appendChild(toastContainer);
+    }
+
+    const toast = document.createElement('div');
+    const bgColor = type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500';
+    toast.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-lg animate-fadeIn max-w-xs text-sm`;
+    toast.textContent = message;
+
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s';
+      setTimeout(() => toast.remove(), 300);
+    }, 5000);
+  }
+
+  static clearMetrics() {
+    const metricsContainer = document.getElementById('metrics-container');
+    if (metricsContainer) {
+      metricsContainer.innerHTML = '<p class="text-gray-400 text-center py-8">Run analysis to see metrics</p>';
+    }
+    const rationaleContainer = document.getElementById('rationale-container');
+    if (rationaleContainer) {
+      rationaleContainer.innerHTML = '';
+    }
+  }
+
+  static hideCharts() {
+    if (typeof Plotly !== 'undefined') {
+      try { Plotly.purge('chart-price'); } catch (_) {}
+      try { Plotly.purge('chart-indicators'); } catch (_) {}
+    }
+    this.initializeChart();
+  }
+}
+```
 
 ---
 
-### 7.8 `manifest.json`, `sw.js`, `package.json`, `tailwind.config.js`, `postcss.config.js`, `css/input.css`, `css/output.css`, `.gitignore`
+### 7.8 `manifest.json`
 
-See Section 7.8–7.15 of the original HANDOFF.md for complete content of all config and build files, including the full minified `css/output.css` which must be committed to the repository for GitHub Pages deployment.
+```json
+{
+  "name": "N314 - Quantitative Trading Sentinel",
+  "short_name": "N314",
+  "description": "Real-time stock tracking, mathematical forecasting, and AI-sentiment dashboard optimized for iOS",
+  "start_url": "/Project-N314/",
+  "scope": "/Project-N314/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23000' width='192' height='192'/><text x='96' y='115' font-size='140' font-weight='bold' fill='%233b82f6' text-anchor='middle'>N</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%23000' width='512' height='512'/><text x='256' y='320' font-size='400' font-weight='bold' fill='%233b82f6' text-anchor='middle'>N</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'><rect fill='%230f172a' width='540' height='720'/><text x='270' y='360' font-size='120' font-weight='bold' fill='%233b82f6' text-anchor='middle'>N314</text></svg>",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Run Analysis",
+      "short_name": "Analyze",
+      "description": "Run N314 stock analysis",
+      "url": "/Project-N314/?action=analyze",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%23000' width='96' height='96'/><text x='48' y='60' font-size='60' font-weight='bold' fill='%233b82f6' text-anchor='middle'>N</text></svg>",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Note:** `start_url` and `scope` are set to `/Project-N314/` for GitHub Pages deployment under the `the-entertrainer/Project-N314` repository. If deploying to a different path, update both values.
 
 ---
 
-## 8. Known Bugs Fixed During Development
+### 7.9 `sw.js`
 
-1. **Gemini Search Grounding + JSON Mode incompatibility** — `googleSearch` tool cannot be combined with `responseMimeType: application/json`. Removed the tools array entirely.
-2. **Alpha Vantage rate limits return HTTP 200** — Must check `data.Note` and `data['Information']` explicitly; there is no 429 status.
-3. **MACD signal line array length mismatch** — Signal EMA calculated on filtered non-null values; re-mapped back using a separate index counter.
-4. **Tailwind not applied on GitHub Pages** — Required full CLI build pipeline; `css/output.css` must be committed.
-5. **ES module imports missing `.js` extension** — GitHub Pages does not rewrite bare specifiers; all imports need explicit `.js`.
+```javascript
+const CACHE_NAME = 'n314-v2';
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.json',
+  './css/output.css',
+  './js/app.js',
+  './js/auth.js',
+  './js/apiFetcher.js',
+  './js/mathEngine.js',
+  './js/aiController.js',
+  './js/uiManager.js'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS);
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  if (
+    event.request.url.includes('alphavantage.co') ||
+    event.request.url.includes('generativelanguage.googleapis.com') ||
+    event.request.url.includes('cdnjs.cloudflare.com') ||
+    event.request.url.includes('cdn.plot.ly')
+  ) {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return new Response('Network error', { status: 503 });
+      })
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then((response) => {
+      return response || fetch(event.request).then((networkResponse) => {
+        return networkResponse;
+      });
+    })
+  );
+});
+```
 
 ---
 
-## 9. Setup & Deployment
+### 7.10 `css/input.css`
+
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* iOS PWA safe area */
+@layer base {
+  * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  select {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  body {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+
+  @media (max-width: 640px) {
+    body {
+      padding-top: max(env(safe-area-inset-top), 0px);
+      padding-left: max(env(safe-area-inset-left), 0px);
+      padding-right: max(env(safe-area-inset-right), 0px);
+      padding-bottom: max(env(safe-area-inset-bottom), 0px);
+    }
+  }
+}
+
+@layer components {
+  .plotly-container {
+    touch-action: pan-y;
+  }
+
+  button:active {
+    transform: scale(0.98);
+  }
+}
+
+@layer utilities {
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+}
+```
+
+### 7.11 `css/output.css`
+
+This is the minified Tailwind output. It MUST be committed to the repository since GitHub Pages has no build step. Generate it by running:
+
+```bash
+npm install
+npx tailwindcss -i ./css/input.css -o ./css/output.css --minify
+```
+
+The exact minified content (copy verbatim):
+
+```
+*,:after,:before{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/*! tailwindcss v3.4.19 | MIT License | https://tailwindcss.com*/*,:after,:before{box-sizing:border-box;border:0 solid #e5e7eb}:after,:before{--tw-content:""}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;-o-tab-size:4;tab-size:4;font-family:ui-sans-serif,system-ui,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol,Noto Color Emoji;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0}fieldset,legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::-moz-placeholder,textarea::-moz-placeholder{opacity:1;color:#9ca3af}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}*{-webkit-touch-callout:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}input,select,textarea{-webkit-user-select:text;-moz-user-select:text;user-select:text}body{background:linear-gradient(135deg,#0f172a,#1e293b);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,sans-serif}@media (max-width:640px){body{padding:max(env(safe-area-inset-top),0px) max(env(safe-area-inset-right),0px) max(env(safe-area-inset-bottom),0px) max(env(safe-area-inset-left),0px)}}button:active{transform:scale(.98)}.static{position:static}.fixed{position:fixed}.sticky{position:sticky}.inset-0{inset:0}.right-4{right:1rem}.top-0{top:0}.top-4{top:1rem}.z-10{z-index:10}.z-40{z-index:40}.z-50{z-index:50}.mx-4{margin-left:1rem;margin-right:1rem}.mx-auto{margin-left:auto;margin-right:auto}.mb-2{margin-bottom:.5rem}.mb-4{margin-bottom:1rem}.mb-6{margin-bottom:1.5rem}.mb-8{margin-bottom:2rem}.ml-2{margin-left:.5rem}.mt-1{margin-top:.25rem}.mt-2{margin-top:.5rem}.mt-4{margin-top:1rem}.mt-6{margin-top:1.5rem}.block{display:block}.inline-block{display:inline-block}.flex{display:flex}.grid{display:grid}.contents{display:contents}.hidden{display:none}.h-2{height:.5rem}.max-h-\[80vh\]{max-height:80vh}.min-h-96{min-height:24rem}.w-full{width:100%}.max-w-7xl{max-width:80rem}.max-w-md{max-width:28rem}.max-w-xs{max-width:20rem}.flex-1{flex:1 1 0%}.animate-fadeIn{animation:fadeIn .3s ease-in-out}.cursor-not-allowed{cursor:not-allowed}.grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr))}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.flex-col{flex-direction:column}.items-end{align-items:flex-end}.items-center{align-items:center}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-4{gap:1rem}.space-x-2>:not([hidden])~:not([hidden]){--tw-space-x-reverse:0;margin-right:calc(.5rem*var(--tw-space-x-reverse));margin-left:calc(.5rem*(1 - var(--tw-space-x-reverse)))}.space-y-2>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.5rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.5rem*var(--tw-space-y-reverse))}.space-y-4>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1rem*var(--tw-space-y-reverse))}.overflow-y-auto{overflow-y:auto}.overflow-x-hidden{overflow-x:hidden}.rounded{border-radius:.25rem}.rounded-full{border-radius:9999px}.rounded-lg{border-radius:.5rem}.border{border-width:1px}.border-b{border-bottom-width:1px}.border-t{border-top-width:1px}.border-gray-700{--tw-border-opacity:1;border-color:rgb(55 65 81/var(--tw-border-opacity,1))}.border-gray-800{--tw-border-opacity:1;border-color:rgb(31 41 55/var(--tw-border-opacity,1))}.bg-black{--tw-bg-opacity:1;background-color:rgb(0 0 0/var(--tw-bg-opacity,1))}.bg-blue-500{--tw-bg-opacity:1;background-color:rgb(59 130 246/var(--tw-bg-opacity,1))}.bg-blue-600{--tw-bg-opacity:1;background-color:rgb(37 99 235/var(--tw-bg-opacity,1))}.bg-gray-700{--tw-bg-opacity:1;background-color:rgb(55 65 81/var(--tw-bg-opacity,1))}.bg-gray-800{--tw-bg-opacity:1;background-color:rgb(31 41 55/var(--tw-bg-opacity,1))}.bg-gray-900{--tw-bg-opacity:1;background-color:rgb(17 24 39/var(--tw-bg-opacity,1))}.bg-green-500{--tw-bg-opacity:1;background-color:rgb(34 197 94/var(--tw-bg-opacity,1))}.bg-green-600{--tw-bg-opacity:1;background-color:rgb(22 163 74/var(--tw-bg-opacity,1))}.bg-red-500{--tw-bg-opacity:1;background-color:rgb(239 68 68/var(--tw-bg-opacity,1))}.bg-slate-950{--tw-bg-opacity:1;background-color:rgb(2 6 23/var(--tw-bg-opacity,1))}.bg-yellow-500{--tw-bg-opacity:1;background-color:rgb(234 179 8/var(--tw-bg-opacity,1))}.bg-opacity-50{--tw-bg-opacity:0.5}.p-4{padding:1rem}.p-6{padding:1.5rem}.p-8{padding:2rem}.px-3{padding-left:.75rem;padding-right:.75rem}.px-4{padding-left:1rem;padding-right:1rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.px-8{padding-left:2rem;padding-right:2rem}.py-2{padding-top:.5rem;padding-bottom:.5rem}.py-3{padding-top:.75rem;padding-bottom:.75rem}.py-4{padding-top:1rem;padding-bottom:1rem}.py-6{padding-top:1.5rem;padding-bottom:1.5rem}.py-8{padding-top:2rem;padding-bottom:2rem}.pb-20{padding-bottom:5rem}.text-center{text-align:center}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:.75rem;line-height:1rem}.font-bold{font-weight:700}.uppercase{text-transform:uppercase}.text-blue-500{--tw-text-opacity:1;color:rgb(59 130 246/var(--tw-text-opacity,1))}.text-gray-300{--tw-text-opacity:1;color:rgb(209 213 219/var(--tw-text-opacity,1))}.text-gray-400{--tw-text-opacity:1;color:rgb(156 163 175/var(--tw-text-opacity,1))}.text-gray-500{--tw-text-opacity:1;color:rgb(107 114 128/var(--tw-text-opacity,1))}.text-gray-600{--tw-text-opacity:1;color:rgb(75 85 99/var(--tw-text-opacity,1))}.text-green-400{--tw-text-opacity:1;color:rgb(74 222 128/var(--tw-text-opacity,1))}.text-purple-500{--tw-text-opacity:1;color:rgb(168 85 247/var(--tw-text-opacity,1))}.text-red-400{--tw-text-opacity:1;color:rgb(248 113 113/var(--tw-text-opacity,1))}.text-red-500{--tw-text-opacity:1;color:rgb(239 68 68/var(--tw-text-opacity,1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.opacity-50{opacity:.5}.shadow-2xl{--tw-shadow:0 25px 50px -12px rgba(0,0,0,.25);--tw-shadow-colored:0 25px 50px -12px var(--tw-shadow-color)}.shadow-2xl,.shadow-lg{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-lg{--tw-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);--tw-shadow-colored:0 10px 15px -3px var(--tw-shadow-color),0 4px 6px -4px var(--tw-shadow-color)}.filter{filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.transition{transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}@keyframes fadeIn{0%{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}.animate-fadeIn{animation:fadeIn .3s ease-in-out}.hover\:bg-blue-700:hover{--tw-bg-opacity:1;background-color:rgb(29 78 216/var(--tw-bg-opacity,1))}.hover\:bg-gray-800:hover{--tw-bg-opacity:1;background-color:rgb(31 41 55/var(--tw-bg-opacity,1))}.hover\:bg-green-700:hover{--tw-bg-opacity:1;background-color:rgb(21 128 61/var(--tw-bg-opacity,1))}.hover\:text-white:hover{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.focus\:border-blue-500:focus{--tw-border-opacity:1;border-color:rgb(59 130 246/var(--tw-border-opacity,1))}.focus\:outline-none:focus{outline:2px solid transparent;outline-offset:2px}@media (min-width:768px){.md\:w-auto{width:auto}.md\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.md\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}.md\:flex-row{flex-direction:row}}
+```
+
+---
+
+### 7.12 `package.json`
+
+```json
+{
+  "name": "project-n314",
+  "version": "1.0.0",
+  "description": "N314 - Quantitative Trading Sentinel PWA",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./css/input.css -o ./css/output.css --minify",
+    "watch:css": "tailwindcss -i ./css/input.css -o ./css/output.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.35",
+    "autoprefixer": "^10.4.17"
+  }
+}
+```
+
+---
+
+### 7.13 `tailwind.config.js`
+
+```javascript
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './index.html',
+    './js/**/*.js'
+  ],
+  theme: {
+    extend: {
+      animation: {
+        'fadeIn': 'fadeIn 0.3s ease-in-out',
+        'spin': 'spin 1s linear infinite'
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(-10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' }
+        }
+      }
+    }
+  },
+  plugins: []
+}
+```
+
+---
+
+### 7.14 `postcss.config.js`
+
+```javascript
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {}
+  }
+}
+```
+
+---
+
+### 7.15 `.gitignore`
+
+```
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build outputs (keep css/output.css tracked for GitHub Pages)
+dist/
+build/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+Thumbs.db
+.AppleDouble
+.LSOverride
+```
+
+**Critical note:** `css/output.css` is intentionally NOT in `.gitignore`. It must be committed because GitHub Pages cannot run the Tailwind build step.
+
+---
+
+## 8. Development History & Bug Fixes
+
+The following bugs were discovered and fixed during the original build. Any AI rebuilding this project needs to be aware of these pitfalls:
+
+### Bug 1: Google Search Grounding + JSON Mode Incompatibility
+**Symptom:** Gemini API returned HTTP 400 when both `"tools": [{"googleSearch": {}}]` and `"responseMimeType": "application/json"` were included in the same request.  
+**Root Cause:** Google's Gemini API does not allow Search Grounding tool to be combined with structured JSON response mode.  
+**Fix:** Removed `"tools": [{"googleSearch": {}}]` from the request payload entirely. The model still has knowledge of market conditions from its training data; it simply doesn't do live web searches.
+
+### Bug 2: Alpha Vantage Rate Limit Responses Are HTTP 200
+**Symptom:** Rate limit exceeded but `response.ok` was `true`, so no error was thrown.  
+**Root Cause:** Alpha Vantage returns HTTP 200 with a `"Note"` key in the JSON body when rate-limited (not HTTP 429). Daily quota exceeded responses use an `"Information"` key.  
+**Fix:** Added explicit checks for both `data.Note` and `data['Information']` in `apiFetcher.js`.
+
+### Bug 3: MACD Signal Line Array Length Mismatch
+**Symptom:** Plotly threw errors when rendering the MACD indicator chart.  
+**Root Cause:** Signal line EMA was calculated on the filtered (non-null) MACD values, producing a shorter array. When re-mapped, indices didn't align correctly.  
+**Fix:** Carefully re-indexed using a separate `emaIdx` counter when mapping the signal EMA values back to the full-length array.
+
+### Bug 4: Tailwind CSS Not Applied on GitHub Pages
+**Symptom:** Page loaded with no styling (unstyled HTML).  
+**Root Cause:** Initially used CDN Tailwind `<script>` tag which doesn't work with GitHub Pages CSP + ES module environment.  
+**Fix:** Set up full Tailwind CLI build pipeline (PostCSS, `npm run build:css`), generated `css/output.css`, linked that file in `index.html`, and committed the output file.
+
+### Bug 5: Import Statements Missing `.js` Extension
+**Symptom:** Modules failed to load on GitHub Pages with 404 errors.  
+**Root Cause:** Browser ES modules require explicit `.js` extensions; bundler-style bare imports don't work.  
+**Fix:** All import statements use explicit `.js` extensions: `import { AuthManager } from './auth.js'`.
+
+---
+
+## 9. Setup & Deployment Instructions
+
+### Step 1: Clone or Create Repository
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/Project-N314.git
 cd Project-N314
-# Create all files per Section 7 above
-npm install
-npm run build:css          # generates css/output.css
-git add . && git commit -m "feat: Build complete N314 PWA"
-git push origin main
-# Enable GitHub Pages in repo settings → Source: main branch / root
 ```
 
-Local testing: `python -m http.server 8000` → open `http://localhost:8000`
+### Step 2: Create All Files
+
+Recreate every file from Section 7 above with exact content.
+
+### Step 3: Build the CSS
+
+```bash
+npm install
+npm run build:css
+```
+
+This generates `css/output.css` which must be committed.
+
+### Step 4: Commit & Push
+
+```bash
+git add .
+git commit -m "feat: Build complete N314 PWA"
+git push origin main
+```
+
+### Step 5: Enable GitHub Pages
+
+In the GitHub repository settings:
+- Source: Deploy from branch `main`
+- Folder: `/ (root)`
+
+The app will be live at: `https://YOUR_USERNAME.github.io/Project-N314/`
+
+### Step 6: Update manifest.json
+
+If your GitHub username is not `the-entertrainer`, update `manifest.json`:
+```json
+"start_url": "/YOUR_REPO_NAME/",
+"scope": "/YOUR_REPO_NAME/"
+```
+
+### Step 7: Run Locally for Testing
+
+```bash
+python -m http.server 8000
+# OR
+npx http-server
+```
+
+Navigate to `http://localhost:8000`
 
 ---
 
-## 10. Required API Keys
+## 10. API Key Acquisition
 
-- **Google Gemini:** https://aistudio.google.com/app/apikeys
-- **Alpha Vantage:** https://www.alphavantage.co/ (free: 5 req/min, 25 req/day)
+### Google Gemini API Key
+1. Go to https://aistudio.google.com/app/apikeys
+2. Sign in with a Google account
+3. Click "Create API Key"
+4. Copy the key (format: `AIza...`)
+
+**Free tier:** Generous rate limits; sufficient for personal use.
+
+### Alpha Vantage API Key
+1. Go to https://www.alphavantage.co/
+2. Click "Get your free API key today"
+3. Fill out the short form
+4. Copy the API key
+
+**Free tier limits:**
+- 5 API requests per minute
+- 25 API requests per day (standard free tier note the `Information` field)
 
 ---
 
-## 11. First-Run Verification Checklist
+## 11. First-Use Flow (Testing Protocol)
 
-- [ ] Passcode gate appears on load; `thinkmoney` grants access
-- [ ] Settings modal saves both API keys to localStorage
-- [ ] Ticker input validates 1–5 uppercase letters; Enter key triggers analysis
-- [ ] Loading spinner appears during pipeline execution
-- [ ] All 5 pipeline steps log to console
-- [ ] Price chart: price (blue), SMA 50 (orange dashed), SMA 200 (red dashed), forecast (green dotted)
-- [ ] Indicator chart: RSI (purple, left axis 0–100), MACD (cyan), Signal (pink), Histogram bars (green/red)
+1. Open the app in a browser (local or GitHub Pages)
+2. The passcode gate appears — enter `thinkmoney`
+3. Click the ⚙️ gear icon in the top-right header
+4. Enter both API keys → click "Save Settings"
+5. Type a ticker in the input box (e.g., `AAPL`)
+6. Click "Run N314 Analysis" (or press Enter)
+7. Wait 6–10 seconds
+8. **Expected output:**
+   - 4 metric cards: Ticker, Price (with change %), RSI (14), Math Target
+   - 3 AI cards: AI Recommendation (BUY/HOLD/SELL badge), AI Confidence (% with progress bar), Sentiment Score
+   - Price chart with blue line (price), orange dashed (SMA 50), red dashed (SMA 200), green dotted (7-day forecast)
+   - Technical indicator chart with purple line (RSI), cyan line (MACD), pink dotted (Signal), green/red bars (Histogram)
+   - RSI chart has horizontal reference lines at 30 (oversold, green) and 70 (overbought, red)
+   - Strategic Rationale card with Gemini's 2-sentence analysis
+
+---
+
+## 12. Metrics Dashboard Reference
+
+| Metric Card | Value | Color Logic |
+|------------|-------|-------------|
+| Ticker | e.g., `AAPL` | White |
+| Price | `$XXX.XX` + `+/- change` | Green if positive, red if negative |
+| RSI (14) | `XX.X` + label | Label: Overbought (>70), Oversold (<30), Neutral |
+| Math Target | `$XXX.XX` + `X% vs current` | White (upside/downside % shown) |
+| AI Recommendation | `BUY` / `HOLD` / `SELL` badge | Green / Yellow / Red |
+| AI Confidence | `XX%` + progress bar | Blue progress bar |
+| Sentiment Score | `+X.XX` / `-X.XX` + label | Green if positive, red if negative; Bullish/Bearish/Neutral |
+
+---
+
+## 13. Color Palette Reference
+
+All UI uses Tailwind dark theme colors:
+
+| Use | Tailwind Class | Hex |
+|-----|---------------|-----|
+| Page background | `bg-slate-950` | `#020617` |
+| Card/panel background | `bg-gray-900` | `#111827` |
+| Inner card background | `bg-gray-800` | `#1f2937` |
+| Border color | `border-gray-800` | `#1f2937` |
+| Primary text | `text-white` | `#ffffff` |
+| Secondary text | `text-gray-400` | `#9ca3af` |
+| Accent blue | `text-blue-500` | `#3b82f6` |
+| Success green | `text-green-400` | `#4ade80` |
+| Error red | `text-red-400` | `#f87171` |
+| Chart price line | — | `#3b82f6` |
+| Chart SMA 50 | — | `#f97316` |
+| Chart SMA 200 | — | `#ef4444` |
+| Chart forecast | — | `#10b981` |
+| Chart RSI | — | `#8b5cf6` |
+| Chart MACD | — | `#06b6d4` |
+| Chart Signal | — | `#ec4899` |
+
+---
+
+## 14. Known Limitations & Future Enhancement Opportunities
+
+The following were explicitly called out as future enhancements (not yet implemented):
+
+- Real-time WebSocket price updates instead of daily snapshots
+- Multiple ticker watchlist with parallel analysis
+- Historical sentiment archive and correlation analysis
+- Export reports as PDF
+- Dark/light theme toggle
+- Offline capability with IndexedDB caching (currently uses Service Worker cache-first strategy, but API data is not cached)
+
+---
+
+## 15. Final Verification Checklist
+
+Before declaring the reconstruction complete, verify:
+
+- [ ] Passcode gate appears on first load and blocks all UI
+- [ ] "thinkmoney" passcode grants access; wrong passcode shows error message
+- [ ] Settings modal opens with ⚙️ button; saves both API keys to localStorage
+- [ ] Ticker input auto-uppercases; validates 1–5 letter format; Enter key triggers analysis
+- [ ] Loading spinner appears on the Analyze button during pipeline execution
+- [ ] All 5 pipeline steps log to console (`[Pipeline] Step X: ...`)
+- [ ] Toast notifications appear top-right (green for success, red for error, blue for info)
+- [ ] Price chart renders with price line, SMA 50, SMA 200, and 7-day forecast extension
+- [ ] Indicator chart renders RSI (left axis, 0–100), MACD+Signal+Histogram (right axis)
 - [ ] RSI chart has reference lines at 30 and 70
-- [ ] 7 metric cards render correctly with color-coded values
-- [ ] Strategic Rationale card appears below charts
-- [ ] App installable via "Add to Home Screen" on iOS
-- [ ] Service Worker registers; no 404 errors for module imports
+- [ ] Math Target card shows % upside/downside vs current price
+- [ ] AI Recommendation badge is color-coded (green=BUY, yellow=HOLD, red=SELL)
+- [ ] Strategic Rationale card appears below the charts
+- [ ] App is installable via "Add to Home Screen" on iOS
+- [ ] Service Worker registers successfully (check DevTools > Application > Service Workers)
+- [ ] No 404 errors for any JS module imports (check Network tab)
+- [ ] All arrays in MathEngine output match `dates.length` (no Plotly length mismatch errors)
 
 ---
 
-*This document contains everything needed to reconstruct N314 from scratch.*
+*End of handoff document. This document contains every file, every design decision, every known bug and its fix, and the complete architecture needed to reconstruct N314 from scratch.*
