@@ -11,6 +11,7 @@ let _filteredData = [];
 let _currentFilters = { sector: 'all', grade: 'all', fnoOnly: false, instOnly: false, search: '' };
 let _sortKey = 'score';
 let _sortDir = -1;
+let _filterTimeout;
 
 export async function initScreener() {
   _bindControls();
@@ -140,7 +141,14 @@ function _showStockModal(stock) {
     </div>`;
 
   UIManager.showModal(`${stock.name} (${stock.ticker.replace('.NS', '')})`, content, null);
-  setTimeout(() => ChartRenderer.renderPriceChart('modal-price-chart', stock), 50);
+  setTimeout(() => {
+    try {
+      ChartRenderer.renderPriceChart('modal-price-chart', stock);
+    } catch (e) {
+      const el = document.getElementById('modal-price-chart');
+      if (el) el.innerHTML = '<div class="text-center text-red-500 text-sm">Chart unavailable</div>';
+    }
+  }, 150);
 }
 
 function _statCard(label, value) {
@@ -169,19 +177,26 @@ function _populateSectorFilter() {
 }
 
 function _bindControls() {
-  document.getElementById('filter-sector')?.addEventListener('change', e => { _currentFilters.sector = e.target.value; _refreshTable(); });
-  document.getElementById('filter-grade')?.addEventListener('change', e => { _currentFilters.grade = e.target.value; _refreshTable(); });
-  document.getElementById('filter-fno')?.addEventListener('change', e => { _currentFilters.fnoOnly = e.target.checked; _refreshTable(); });
-  document.getElementById('filter-inst')?.addEventListener('change', e => { _currentFilters.instOnly = e.target.checked; _refreshTable(); });
-  document.getElementById('screener-search')?.addEventListener('input', e => { _currentFilters.search = e.target.value; _refreshTable(); });
+  const _debouncedRefresh = () => {
+    clearTimeout(_filterTimeout);
+    _filterTimeout = setTimeout(_refreshTable, 250);
+  };
+  document.getElementById('filter-sector')?.addEventListener('change', e => { _currentFilters.sector = e.target.value; _debouncedRefresh(); });
+  document.getElementById('filter-grade')?.addEventListener('change', e => { _currentFilters.grade = e.target.value; _debouncedRefresh(); });
+  document.getElementById('filter-fno')?.addEventListener('change', e => { _currentFilters.fnoOnly = e.target.checked; _debouncedRefresh(); });
+  document.getElementById('filter-inst')?.addEventListener('change', e => { _currentFilters.instOnly = e.target.checked; _debouncedRefresh(); });
+  document.getElementById('screener-search')?.addEventListener('input', e => { _currentFilters.search = e.target.value; _debouncedRefresh(); });
 
   document.getElementById('btn-refresh')?.addEventListener('click', _triggerFetch);
   document.getElementById('btn-export')?.addEventListener('click', async () => {
+    const container = document.getElementById('screener-content');
+    UIManager.showProgress(container?.id || 'screener-content', 0, 1, 'Generating Excel file...');
     try {
       const filename = await ExcelExporter.generate();
+      _refreshTable();
       UIManager.showToast(`Downloaded ${filename}`, 'success');
     } catch (e) {
-      UIManager.showToast(`Export failed: ${e.message}`, 'error');
+      UIManager.showError(container?.id || 'screener-content', `Export failed: ${e.message}`);
     }
   });
 

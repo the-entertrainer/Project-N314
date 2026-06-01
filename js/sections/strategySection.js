@@ -150,6 +150,8 @@ async function _generateStrategy() {
   const btn = document.getElementById('btn-generate-strategy');
   if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
 
+  UIManager.showLoading('ai-strategy-section', 'Analyzing market scenarios...');
+
   try {
     if (!_fnoData) _fnoData = await FnoFetcher.getLiveData();
     const scenarios = NiftyEngine.buildScenarios(State.niftyData, _fnoData);
@@ -192,7 +194,7 @@ Provide a detailed strategy with:
     _renderAIStrategy(result);
     UIManager.showToast('Strategy generated!', 'success');
   } catch (e) {
-    UIManager.showToast(`Error: ${e.message}`, 'error');
+    UIManager.showError('ai-strategy-section', `Error: ${e.message}`, _generateStrategy);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Generate Strategy'; }
   }

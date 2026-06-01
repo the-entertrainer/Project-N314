@@ -53,6 +53,8 @@ async function _generateStrategy() {
   const btn = document.getElementById('btn-fno-generate');
   if (btn) { btn.disabled = true; btn.textContent = 'Computing...'; }
 
+  UIManager.showLoading('fno-strategy-result', 'Analyzing market conditions and computing strategy...');
+
   try {
     if (!_fnoData) _fnoData = await FnoFetcher.getLiveData();
     const stock = State.stocks.get(underlying + '.NS');
@@ -85,7 +87,7 @@ async function _generateStrategy() {
     _currentStrategy = strategy;
     _renderStrategyCard(strategy);
   } catch (e) {
-    UIManager.showToast(`Error: ${e.message}`, 'error');
+    UIManager.showError('fno-strategy-result', `Error: ${e.message}`, _generateStrategy);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Generate'; }
   }
