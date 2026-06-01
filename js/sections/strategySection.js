@@ -157,25 +157,26 @@ async function _generateStrategy() {
     const scenarios = NiftyEngine.buildScenarios(State.niftyData, _fnoData);
     _renderScenarios(scenarios);
 
-    const prompt = `You are the head of derivatives strategy at a top Indian brokerage.
-Write a comprehensive next-day market strategy for Nifty 50 based on:
+    const prompt = `You're a sharp friend who trades Nifty every day and genuinely wants to help.
+Explain tomorrow's Nifty market in plain, simple language — like you're messaging a friend who just started trading.
+No jargon. Use short sentences. Be direct about what matters and why.
 
-F&O Data: PCR=${_fnoData.pcr}, VIX=${_fnoData.vix}, FII Net Equity=₹${_fnoData.fiiNetEquity}Cr, DII Net=₹${_fnoData.diiNetEquity}Cr
-Option Chain: Top Call OI at ${_fnoData.topCallStrike}, Top Put OI at ${_fnoData.topPutStrike}, Max Pain=${_fnoData.maxPain}
-Global: Dow Futures ${_fnoData.dowFutures > 0 ? '+' : ''}${_fnoData.dowFutures}%
-Advance/Decline: ${_fnoData.advance}/${_fnoData.decline}
+Here's today's data:
+PCR=${_fnoData.pcr}, VIX=${_fnoData.vix}, FII bought/sold ₹${_fnoData.fiiNetEquity}Cr, DII ₹${_fnoData.diiNetEquity}Cr
+Big resistance at ${_fnoData.topCallStrike} (call OI), big support at ${_fnoData.topPutStrike} (put OI), Max Pain=${_fnoData.maxPain}
+Dow Futures ${_fnoData.dowFutures > 0 ? '+' : ''}${_fnoData.dowFutures}%, Advances/Declines: ${_fnoData.advance}/${_fnoData.decline}
 
-Calculated Scenarios:
-Bull (${scenarios.bull.probability}%): Target ${scenarios.bull.target1}, ${scenarios.bull.target2}
-Bear (${scenarios.bear.probability}%): Target ${scenarios.bear.target1}, ${scenarios.bear.target2}
-Sideways (${scenarios.sideways.probability}%): Range ${scenarios.sideways.range}
+What the numbers say:
+Bull case (${scenarios.bull.probability}% chance): targets ${scenarios.bull.target1} then ${scenarios.bull.target2}
+Bear case (${scenarios.bear.probability}% chance): targets ${scenarios.bear.target1} then ${scenarios.bear.target2}
+Sideways (${scenarios.sideways.probability}% chance): stuck in range ${scenarios.sideways.range}
 
-Provide a detailed strategy with:
-1. Pre-market preparation checklist
-2. Opening trade plan (first 15 minutes)
-3. The most likely scenario and specific trade setups
-4. Risk management rules for the day
-5. Important levels to watch`;
+Tell me in plain English:
+1. What to check before market opens (quick checklist)
+2. What to do in the first 15 minutes
+3. Which scenario looks most likely and what trade to take
+4. Simple risk rules for the day
+5. Key price levels to watch`;
 
     const schema = {
       type: 'OBJECT',

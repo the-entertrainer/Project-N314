@@ -59,15 +59,16 @@ async function _generateLongTermList() {
       trend: s.trend, rsi: s.rsi,
     }));
 
-    const prompt = `You are a senior equity research analyst at a top Indian wealth management firm.
-Analyze these ${candidates.length} candidate stocks from the Nifty 500 universe and select the BEST 25 for a long-term 10-year equity portfolio.
+    const prompt = `You're a knowledgeable friend helping someone invest their savings wisely for the next 10 years.
+From these ${candidates.length} Nifty 500 stocks, pick the BEST 25 you'd genuinely recommend to a friend for long-term wealth creation.
 
-CANDIDATE STOCKS (JSON):
+Think simply: which businesses are hard to replace? Which grow with India? Which aren't overpriced right now?
+Write each thesis like you're explaining to a smart friend — clear, honest, no buzzwords. No "synergies", no "robust frameworks".
+
+CANDIDATE STOCKS:
 ${JSON.stringify(stockSummary, null, 2)}
 
-Selection criteria: strong competitive moat, consistent profitability, low debt, India growth tailwinds, reasonable valuation, technically not extended.
-
-For each of your 25 selected stocks, provide a comprehensive investment thesis in the exact JSON schema below.`;
+Use the exact JSON schema below for your 25 picks.`;
 
     const schema = {
       type: 'OBJECT',

@@ -47,11 +47,16 @@ function _render() {
         const content = `<div id="wl-chart"></div>`;
         UIManager.showModal(stock.name, content);
         setTimeout(() => {
+          const chartEl = document.getElementById('wl-chart');
+          if (!chartEl) return;
+          if (!stock.rawPrices?.length) {
+            chartEl.innerHTML = '<p class="text-center text-gray-400 text-sm py-4 italic">No price chart available yet for this stock.</p>';
+            return;
+          }
           try {
             ChartRenderer.renderPriceChart('wl-chart', stock);
           } catch (e) {
-            const el = document.getElementById('wl-chart');
-            if (el) el.innerHTML = '<div class="text-center text-red-500 text-sm">Chart unavailable</div>';
+            chartEl.innerHTML = '<div class="text-center text-red-500 text-sm">Chart unavailable</div>';
           }
         }, 150);
       }

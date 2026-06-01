@@ -12,9 +12,22 @@ let _currentFilters = { sector: 'all', grade: 'all', fnoOnly: false, instOnly: f
 let _sortKey = 'score';
 let _sortDir = -1;
 let _filterTimeout;
+let _resizeTimer;
+
+function _setScrollHeight() {
+  const el = document.getElementById('screener-scroll');
+  if (!el) return;
+  const top = el.getBoundingClientRect().top;
+  const bottomPad = window.innerWidth < 640 ? 68 : 8;
+  el.style.height = Math.max(200, window.innerHeight - top - bottomPad) + 'px';
+}
 
 export async function initScreener() {
   _bindControls();
+  window.addEventListener('resize', () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(_setScrollHeight, 100);
+  });
   document.addEventListener('statechange', e => {
     if (e.detail.key === 'stocks_all' || e.detail.key === 'fetchStatus') _refreshTable();
   });
@@ -74,11 +87,12 @@ function _refreshTable() {
 
   const countEl = document.getElementById('screener-count');
   if (countEl) countEl.textContent = `${_filteredData.length} stocks`;
+  setTimeout(_setScrollHeight, 0);
 }
 
 function _buildTableHTML() {
   return `
-    <div id="screener-scroll" class="overflow-y-auto" style="height:calc(100vh - 280px)">
+    <div id="screener-scroll" class="overflow-y-auto">
       <div id="screener-scroll-spacer-top" style="height:0"></div>
       <table class="w-full text-left border-collapse">
         <thead class="sticky top-0 z-10" style="background:rgba(255,255,255,0.92);backdrop-filter:blur(12px);">
@@ -142,11 +156,16 @@ function _showStockModal(stock) {
 
   UIManager.showModal(`${stock.name} (${stock.ticker.replace('.NS', '')})`, content, null);
   setTimeout(() => {
+    const chartEl = document.getElementById('modal-price-chart');
+    if (!chartEl) return;
+    if (!stock.rawPrices?.length) {
+      chartEl.innerHTML = '<p class="text-center text-gray-400 text-sm py-4 italic">No price chart — history is loaded only for the top 100 scored stocks.</p>';
+      return;
+    }
     try {
       ChartRenderer.renderPriceChart('modal-price-chart', stock);
     } catch (e) {
-      const el = document.getElementById('modal-price-chart');
-      if (el) el.innerHTML = '<div class="text-center text-red-500 text-sm">Chart unavailable</div>';
+      chartEl.innerHTML = '<div class="text-center text-red-500 text-sm py-2">Chart unavailable</div>';
     }
   }, 150);
 }

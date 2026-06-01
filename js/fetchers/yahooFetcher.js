@@ -4,7 +4,10 @@ import ScoringEngine from '../engines/scoringEngine.js';
 import RationaleEngine from '../engines/rationaleEngine.js';
 import NIFTY500 from '../data/nifty500.js';
 
-const PROXY = 'https://corsproxy.io/?url=';
+const PROXIES = [
+  'https://corsproxy.io/?url=',
+  'https://api.allorigins.win/raw?url=',
+];
 const BATCH_SIZE = 100;
 const TIMEOUT_MS = 20000;
 
@@ -114,13 +117,7 @@ export class YahooFetcher {
       'trailingPE', 'priceToBook', 'trailingEps', 'trailingAnnualDividendYield', 'beta'
     ].join(',');
     const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbolsStr)}&fields=${fields}`;
-    const url = `${PROXY}${encodeURIComponent(yahooUrl)}`;
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
-
+    const res = await this._fetchRace(yahooUrl);
     if (!res.ok) throw new Error(`Yahoo batch failed: ${res.status}`);
     const data = await res.json();
     return data?.quoteResponse?.result || [];
@@ -128,12 +125,7 @@ export class YahooFetcher {
 
   static async _fetchAndProcessHistory(ticker) {
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`;
-    const url = `${PROXY}${encodeURIComponent(yahooUrl)}`;
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
+    const res = await this._fetchRace(yahooUrl);
 
     if (!res.ok) return;
     const data = await res.json();
@@ -200,12 +192,7 @@ export class YahooFetcher {
   static async _fetchFundamentals(ticker) {
     const modules = 'financialData,defaultKeyStatistics,incomeStatementHistory';
     const yahooUrl = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`;
-    const url = `${PROXY}${encodeURIComponent(yahooUrl)}`;
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
+    const res = await this._fetchRace(yahooUrl);
 
     if (!res.ok) return;
     const data = await res.json();
@@ -231,6 +218,25 @@ export class YahooFetcher {
       currentRatio: fd.currentRatio?.raw || null,
       quickRatio: fd.quickRatio?.raw || null,
     });
+  }
+
+  static async _fetchRace(url) {
+    const acs = PROXIES.map(() => new AbortController());
+    const timer = setTimeout(() => acs.forEach(ac => ac.abort()), TIMEOUT_MS);
+    let winnerIdx = -1;
+    try {
+      const attempts = PROXIES.map((proxy, i) =>
+        fetch(proxy + encodeURIComponent(url), { signal: acs[i].signal })
+          .then(r => { if (!r.ok) throw new Error(r.status); winnerIdx = i; return r; })
+      );
+      const res = await Promise.any(attempts);
+      clearTimeout(timer);
+      acs.forEach((ac, i) => { if (i !== winnerIdx) ac.abort(); });
+      return res;
+    } catch {
+      clearTimeout(timer);
+      throw new Error('All data sources unavailable');
+    }
   }
 
   static _yield() {

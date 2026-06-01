@@ -107,7 +107,7 @@ async function _generateAI() {
     const losers = sorted.slice(-5).reverse().map(s => `${s.ticker.replace('.NS', '')} ${s.returnDaily.toFixed(2)}%`).join(', ');
     const avgChange = stocks.reduce((s, a) => s + a.returnDaily, 0) / stocks.length;
 
-    const prompt = `You are a senior Indian equity market analyst writing a post-market summary for today.
+    const prompt = `You're a smart friend who follows Indian markets every day. Summarize today's market in plain, simple English — like you're WhatsApping a friend after market close.
 
 Market Data:
 - Average Nifty 500 stock change: ${avgChange.toFixed(2)}%
@@ -115,12 +115,7 @@ Market Data:
 - Top 5 Losers: ${losers}
 - Date: ${new Date().toLocaleDateString('en-IN')}
 
-Provide a comprehensive post-market analysis with:
-1. Market summary (what happened and why)
-2. What worked (strategies/sectors that paid off)
-3. What failed (strategies that didn't work)
-4. Key things to watch tomorrow
-5. Brief overnight risk factors`;
+Keep it real and human — what actually happened, why it matters, and what to watch tomorrow. No formal language, no jargon.`;
 
     const schema = {
       type: 'OBJECT',
