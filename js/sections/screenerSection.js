@@ -26,17 +26,31 @@ export async function initScreener() {
 }
 
 async function _triggerFetch() {
-  const container = document.getElementById('screener-content');
-  UIManager.showProgress('screener-content', 0, 1, 'Initializing data fetch...');
+  if (_renderer) {
+    _renderer.destroy();
+    _renderer = null;
+  }
+  UIManager.showProgress('screener-content', 0, 1, 'Connecting to Yahoo Finance...');
 
   try {
     await YahooFetcher.fetchAll500((current, total) => {
-      UIManager.showProgress('screener-content', current, total, `Fetching batch ${current}/${total}...`);
+      if (!_renderer) {
+        // Table not yet rendered — safe to show full progress overlay
+        UIManager.showProgress('screener-content', current, total, `Fetching quotes ${current}/${total}...`);
+      } else {
+        // Table already rendered — update the lightweight header status only
+        const countEl = document.getElementById('screener-count');
+        if (countEl) countEl.textContent = `Enriching data ${current}/${total}...`;
+      }
     });
   } catch (e) {
     UIManager.showError('screener-content', `Data fetch failed: ${e.message}`, _triggerFetch);
     UIManager.showToast(`Fetch error: ${e.message}`, 'error');
   }
+
+  // Ensure count shows final result
+  const countEl = document.getElementById('screener-count');
+  if (countEl) countEl.textContent = `${_filteredData.length} stocks`;
 }
 
 function _refreshTable() {
@@ -66,19 +80,19 @@ function _buildTableHTML() {
     <div id="screener-scroll" class="overflow-y-auto" style="height:calc(100vh - 280px)">
       <div id="screener-scroll-spacer-top" style="height:0"></div>
       <table class="w-full text-left border-collapse">
-        <thead class="sticky top-0 bg-surface-800 z-10">
-          <tr class="border-b border-surface-600">
-            <th class="px-3 py-2 text-xs text-surface-400 w-10">#</th>
-            <th class="px-3 py-2 text-xs text-surface-400 cursor-pointer hover:text-white" data-sort="ticker">Stock</th>
-            <th class="px-3 py-2 text-xs text-surface-400 text-right cursor-pointer hover:text-white" data-sort="cmp">CMP</th>
-            <th class="px-3 py-2 text-xs text-surface-400 cursor-pointer hover:text-white" data-sort="score">Score</th>
-            <th class="px-3 py-2 text-xs text-surface-400 text-center cursor-pointer hover:text-white" data-sort="grade">Grade</th>
-            <th class="px-3 py-2 text-xs text-surface-400 text-right cursor-pointer hover:text-white" data-sort="rsi">RSI</th>
-            <th class="px-3 py-2 text-xs text-surface-400 text-center">Trend</th>
-            <th class="px-3 py-2 text-xs text-surface-400 text-right cursor-pointer hover:text-white" data-sort="pe">P/E</th>
-            <th class="px-3 py-2 text-xs text-surface-400 text-right cursor-pointer hover:text-white" data-sort="returnMonthly">1M%</th>
-            <th class="px-3 py-2 text-xs text-surface-400 text-center">F&O</th>
-            <th class="px-3 py-2 text-xs text-surface-400 text-center">Inst</th>
+        <thead class="sticky top-0 z-10" style="background:rgba(255,255,255,0.92);backdrop-filter:blur(12px);">
+          <tr class="border-b border-gray-200">
+            <th class="px-3 py-2 text-xs text-gray-500 w-10">#</th>
+            <th class="px-3 py-2 text-xs text-gray-500 cursor-pointer hover:text-gray-800" data-sort="ticker">Stock</th>
+            <th class="px-3 py-2 text-xs text-gray-500 text-right cursor-pointer hover:text-gray-800" data-sort="cmp">CMP</th>
+            <th class="px-3 py-2 text-xs text-gray-500 cursor-pointer hover:text-gray-800" data-sort="score">Score</th>
+            <th class="px-3 py-2 text-xs text-gray-500 text-center cursor-pointer hover:text-gray-800" data-sort="grade">Grade</th>
+            <th class="px-3 py-2 text-xs text-gray-500 text-right cursor-pointer hover:text-gray-800" data-sort="rsi">RSI</th>
+            <th class="px-3 py-2 text-xs text-gray-500 text-center">Trend</th>
+            <th class="px-3 py-2 text-xs text-gray-500 text-right cursor-pointer hover:text-gray-800" data-sort="pe">P/E</th>
+            <th class="px-3 py-2 text-xs text-gray-500 text-right cursor-pointer hover:text-gray-800" data-sort="returnMonthly">1M%</th>
+            <th class="px-3 py-2 text-xs text-gray-500 text-center">F&O</th>
+            <th class="px-3 py-2 text-xs text-gray-500 text-center">Inst</th>
           </tr>
         </thead>
         <tbody id="screener-tbody"></tbody>
@@ -89,14 +103,14 @@ function _buildTableHTML() {
 
 function _showStockModal(stock) {
   const r = stock.rationale || RationaleEngine.buildStockRationale(stock);
-  const techHtml = (r.technicalSignals || []).map(s => `<li class="text-sm text-surface-300">${s}</li>`).join('');
-  const fundHtml = (r.fundamentalSignals || []).map(s => `<li class="text-sm text-surface-300">${s}</li>`).join('');
+  const techHtml = (r.technicalSignals || []).map(s => `<li class="text-sm text-gray-600">${s}</li>`).join('');
+  const fundHtml = (r.fundamentalSignals || []).map(s => `<li class="text-sm text-gray-600">${s}</li>`).join('');
   const riskHtml = (r.risks || []).map(s => `<li class="text-sm text-red-400">${s}</li>`).join('');
 
   const content = `
     <div class="space-y-5">
       <div class="flex flex-wrap gap-3 items-center">
-        <span class="text-2xl font-bold text-white">₹${stock.cmp?.toFixed(2) || 'N/A'}</span>
+        <span class="text-2xl font-bold text-gray-800">₹${stock.cmp?.toFixed(2) || 'N/A'}</span>
         <span>${UIManager.formatPercent(stock.returnDaily)} today</span>
         <span class="px-2 py-0.5 rounded text-sm font-bold ${UIManager.gradeColor(stock.grade)}">${stock.grade} — ${stock.score}/100</span>
       </div>
@@ -117,11 +131,11 @@ function _showStockModal(stock) {
       ${r.recommendationBasis ? `<div class="bg-accent/10 border border-accent/30 rounded-lg p-4"><p class="text-accent font-semibold text-sm">${r.recommendationBasis}</p></div>` : ''}
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        ${techHtml ? `<div><h4 class="text-xs font-semibold text-surface-400 uppercase mb-2">Technical Signals</h4><ul class="space-y-1">${techHtml}</ul></div>` : ''}
-        ${fundHtml ? `<div><h4 class="text-xs font-semibold text-surface-400 uppercase mb-2">Fundamental Signals</h4><ul class="space-y-1">${fundHtml}</ul></div>` : ''}
+        ${techHtml ? `<div><h4 class="text-xs font-semibold text-gray-500 uppercase mb-2">Technical Signals</h4><ul class="space-y-1">${techHtml}</ul></div>` : ''}
+        ${fundHtml ? `<div><h4 class="text-xs font-semibold text-gray-500 uppercase mb-2">Fundamental Signals</h4><ul class="space-y-1">${fundHtml}</ul></div>` : ''}
       </div>
       ${riskHtml ? `<div><h4 class="text-xs font-semibold text-red-400 uppercase mb-2">Key Risks</h4><ul class="space-y-1">${riskHtml}</ul></div>` : ''}
-      ${r.aiNarrative ? `<div class="bg-surface-700 rounded-lg p-4"><h4 class="text-xs font-semibold text-purple-400 uppercase mb-2">AI Narrative</h4><p class="text-surface-300 text-sm leading-relaxed">${r.aiNarrative}</p></div>` : ''}
+      ${r.aiNarrative ? `<div class="bg-purple-50 border border-purple-200 rounded-lg p-4"><h4 class="text-xs font-semibold text-purple-600 uppercase mb-2">AI Narrative</h4><p class="text-gray-700 text-sm leading-relaxed">${r.aiNarrative}</p></div>` : ''}
     </div>`;
 
   UIManager.showModal(`${stock.name} (${stock.ticker.replace('.NS', '')})`, content, null);
@@ -129,7 +143,7 @@ function _showStockModal(stock) {
 }
 
 function _statCard(label, value) {
-  return `<div class="bg-surface-700 rounded-lg p-3"><div class="text-xs text-surface-400">${label}</div><div class="text-white font-semibold mt-0.5">${value || 'N/A'}</div></div>`;
+  return `<div class="bg-white/80 border border-gray-100 rounded-lg p-3"><div class="text-xs text-gray-500">${label}</div><div class="text-gray-800 font-semibold mt-0.5">${value || 'N/A'}</div></div>`;
 }
 
 function _applyFilters(stocks) {

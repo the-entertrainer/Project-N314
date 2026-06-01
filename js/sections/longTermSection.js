@@ -120,11 +120,11 @@ function _render() {
     container.innerHTML = `
       <div id="longterm-empty" class="text-center py-16">
         <div class="text-6xl mb-4">🌱</div>
-        <h3 class="text-xl font-bold text-white mb-2">Long-Term Equity Picks</h3>
-        <p class="text-surface-400 max-w-md mx-auto mb-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-2">Long-Term Equity Picks</h3>
+        <p class="text-gray-500 max-w-md mx-auto mb-6">
           Gemini AI will analyze the Nifty 500 universe and curate 25 stocks for a 10-year wealth creation portfolio — with full investment thesis, moat analysis, and buy zones.
         </p>
-        <p class="text-surface-500 text-sm mb-6">
+        <p class="text-gray-400 text-sm mb-6">
           ${State.stocks.size === 0 ? '⚠ Run the Screener first to load stock data.' : `${State.stocks.size} stocks loaded and ready.`}
         </p>
       </div>`;
@@ -150,41 +150,41 @@ function _buildPickCard(s, i) {
   const stock = State.stocks.get(s.ticker) || s;
   const grade = stock.grade || s.grade || 'A';
   const cmp = stock.cmp ? `₹${stock.cmp.toFixed(2)}` : 'N/A';
-  const growthHtml = (s.growthDrivers || []).map(g => `<li class="text-sm text-surface-300 flex gap-2"><span class="text-accent mt-0.5">→</span>${g}</li>`).join('');
-  const risksHtml = (s.risks || []).map(r => `<li class="text-sm text-red-400 flex gap-2"><span class="mt-0.5">⚠</span>${r}</li>`).join('');
+  const growthHtml = (s.growthDrivers || []).map(g => `<li class="text-sm text-gray-600 flex gap-2"><span class="text-accent mt-0.5">→</span>${g}</li>`).join('');
+  const risksHtml = (s.risks || []).map(r => `<li class="text-sm text-red-500 flex gap-2"><span class="mt-0.5">⚠</span>${r}</li>`).join('');
 
   return `
-    <div class="pick-card bg-surface-800 rounded-xl border border-surface-700 overflow-hidden">
+    <div class="pick-card glass-card overflow-hidden">
       <div class="p-4">
         <div class="flex items-start justify-between gap-2 mb-2">
           <div>
-            <span class="text-surface-400 text-xs">#${i + 1}</span>
-            <h3 class="font-bold text-white">${s.name || s.ticker}</h3>
-            <p class="text-xs text-surface-400">${stock.sector || ''} · ${s.ticker.replace('.NS', '')}</p>
+            <span class="text-gray-400 text-xs">#${i + 1}</span>
+            <h3 class="font-bold text-gray-800">${s.name || s.ticker}</h3>
+            <p class="text-xs text-gray-500">${stock.sector || ''} · ${s.ticker.replace('.NS', '')}</p>
           </div>
           <div class="text-right flex-shrink-0">
             <span class="px-2 py-0.5 rounded text-xs font-bold ${UIManager.gradeColor(grade)}">${grade}</span>
-            <div class="text-white font-bold mt-1">${cmp}</div>
+            <div class="text-gray-800 font-bold mt-1">${cmp}</div>
           </div>
         </div>
 
-        ${s.buyZone ? `<div class="flex items-center gap-2 mb-3"><span class="text-xs text-surface-400">Buy Zone:</span><span class="text-green-400 font-semibold text-sm">${s.buyZone}</span></div>` : ''}
+        ${s.buyZone ? `<div class="flex items-center gap-2 mb-3"><span class="text-xs text-gray-500">Buy Zone:</span><span class="text-green-600 font-semibold text-sm">${s.buyZone}</span></div>` : ''}
 
         <div class="space-y-2 mb-3">
-          <div class="flex gap-2"><span class="text-xs font-semibold text-blue-400 w-16 flex-shrink-0">MOAT</span><p class="text-xs text-surface-300">${s.moat || 'N/A'}</p></div>
-          <div class="flex gap-2"><span class="text-xs font-semibold text-purple-400 w-16 flex-shrink-0">ENTRY</span><p class="text-xs text-surface-300">${s.technicalEntry || 'N/A'}</p></div>
-          <div class="flex gap-2"><span class="text-xs font-semibold text-yellow-400 w-16 flex-shrink-0">VALUE</span><p class="text-xs text-surface-300">${s.valuationCase || 'N/A'}</p></div>
+          <div class="flex gap-2"><span class="text-xs font-semibold text-blue-600 w-16 flex-shrink-0">MOAT</span><p class="text-xs text-gray-600">${s.moat || 'N/A'}</p></div>
+          <div class="flex gap-2"><span class="text-xs font-semibold text-purple-600 w-16 flex-shrink-0">ENTRY</span><p class="text-xs text-gray-600">${s.technicalEntry || 'N/A'}</p></div>
+          <div class="flex gap-2"><span class="text-xs font-semibold text-yellow-600 w-16 flex-shrink-0">VALUE</span><p class="text-xs text-gray-600">${s.valuationCase || 'N/A'}</p></div>
         </div>
 
         <button class="pick-expand-btn text-xs text-accent hover:text-accent/80 transition-colors">▼ Read Full Thesis</button>
       </div>
 
-      <div class="pick-body hidden border-t border-surface-700 p-4 space-y-4">
-        ${s.tenYearThesis ? `<div><h4 class="text-xs font-semibold text-surface-400 uppercase mb-2">10-Year Investment Thesis</h4><p class="text-sm text-surface-200 leading-relaxed">${s.tenYearThesis}</p></div>` : ''}
-        ${growthHtml ? `<div><h4 class="text-xs font-semibold text-surface-400 uppercase mb-2">Growth Drivers</h4><ul class="space-y-1">${growthHtml}</ul></div>` : ''}
-        ${s.bearCase ? `<div><h4 class="text-xs font-semibold text-surface-400 uppercase mb-2">Bear Case</h4><p class="text-sm text-orange-300">${s.bearCase}</p></div>` : ''}
-        ${risksHtml ? `<div><h4 class="text-xs font-semibold text-red-400 uppercase mb-2">Key Risks</h4><ul class="space-y-1">${risksHtml}</ul></div>` : ''}
-        ${s.suggestedSIPMonthly ? `<div class="bg-green-900/20 border border-green-700/30 rounded-lg p-3"><p class="text-xs text-surface-400">Suggested Monthly SIP</p><p class="text-green-400 font-semibold">${s.suggestedSIPMonthly}</p></div>` : ''}
+      <div class="pick-body hidden border-t border-gray-200 p-4 space-y-4 bg-white/40">
+        ${s.tenYearThesis ? `<div><h4 class="text-xs font-semibold text-gray-500 uppercase mb-2">10-Year Investment Thesis</h4><p class="text-sm text-gray-700 leading-relaxed">${s.tenYearThesis}</p></div>` : ''}
+        ${growthHtml ? `<div><h4 class="text-xs font-semibold text-gray-500 uppercase mb-2">Growth Drivers</h4><ul class="space-y-1">${growthHtml}</ul></div>` : ''}
+        ${s.bearCase ? `<div><h4 class="text-xs font-semibold text-gray-500 uppercase mb-2">Bear Case</h4><p class="text-sm text-orange-600">${s.bearCase}</p></div>` : ''}
+        ${risksHtml ? `<div><h4 class="text-xs font-semibold text-red-500 uppercase mb-2">Key Risks</h4><ul class="space-y-1">${risksHtml}</ul></div>` : ''}
+        ${s.suggestedSIPMonthly ? `<div class="bg-green-50 border border-green-200 rounded-lg p-3"><p class="text-xs text-gray-500">Suggested Monthly SIP</p><p class="text-green-700 font-semibold">${s.suggestedSIPMonthly}</p></div>` : ''}
       </div>
     </div>`;
 }

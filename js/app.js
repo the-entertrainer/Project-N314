@@ -19,6 +19,7 @@ function init() {
   AuthManager.initializeAuth(() => {
     _setupNavigation();
     _setupSettings();
+    _setupStatusDot();
     _navigateTo('screener');
     _registerServiceWorker();
   });
@@ -63,6 +64,15 @@ async function _initTab(tabId) {
     console.error(`Error initializing tab ${tabId}:`, e);
     UIManager.showToast(`Error loading ${tabId}: ${e.message}`, 'error');
   }
+}
+
+function _setupStatusDot() {
+  const dot = document.getElementById('fetch-status-dot');
+  if (!dot) return;
+  document.addEventListener('statechange', e => {
+    if (e.detail.key !== 'fetchStatus') return;
+    dot.className = `w-2 h-2 rounded-full ml-1 dot-${State.fetchStatus}`;
+  });
 }
 
 function _setupSettings() {

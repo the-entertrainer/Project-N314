@@ -64,7 +64,7 @@ export class TableRenderer {
 
   _buildRow(stock, idx) {
     const tr = document.createElement('tr');
-    tr.className = 'border-b border-surface-700 hover:bg-surface-700/50 cursor-pointer transition-colors';
+    tr.className = 'border-b border-gray-100 hover:bg-indigo-50/40 cursor-pointer transition-colors';
     tr.style.height = `${ROW_HEIGHT}px`;
     tr.dataset.ticker = stock.ticker;
 
@@ -83,18 +83,18 @@ export class TableRenderer {
 
 export function buildScreenerColumns() {
   return [
-    { key: 'rank', class: 'text-surface-400 w-10', render: (_, i) => `<span class="text-xs">${i + 1}</span>` },
+    { key: 'rank', class: 'text-gray-400 w-10', render: (_, i) => `<span class="text-xs">${i + 1}</span>` },
     {
       key: 'ticker', class: 'font-mono text-accent', render: s =>
-        `<div><div class="font-semibold">${s.ticker.replace('.NS', '')}</div><div class="text-xs text-surface-400 truncate max-w-28">${s.name || ''}</div></div>`
+        `<div><div class="font-semibold text-gray-800">${s.ticker.replace('.NS', '')}</div><div class="text-xs text-gray-500 truncate max-w-28">${s.name || ''}</div></div>`
     },
     {
       key: 'cmp', class: 'text-right tabular-nums', render: s =>
-        `<div class="text-white">₹${s.cmp?.toFixed(2) || 'N/A'}</div><div class="text-xs">${UIManager.formatPercent(s.returnDaily)}</div>`
+        `<div class="text-gray-800 font-medium">₹${s.cmp?.toFixed(2) || 'N/A'}</div><div class="text-xs">${UIManager.formatPercent(s.returnDaily)}</div>`
     },
     {
       key: 'score', class: 'w-24', render: s =>
-        `<div class="flex items-center gap-1"><span class="font-bold text-white w-6 text-right">${s.score || 0}</span>${UIManager.scoreBar(s.score || 0)}</div>`
+        `<div class="flex items-center gap-1"><span class="font-bold text-gray-800 w-6 text-right">${s.score || 0}</span>${UIManager.scoreBar(s.score || 0)}</div>`
     },
     {
       key: 'grade', class: 'text-center', render: s =>
@@ -103,8 +103,8 @@ export function buildScreenerColumns() {
     {
       key: 'rsi', class: 'text-right tabular-nums', render: s => {
         const v = s.rsi;
-        if (v === null || v === undefined) return '<span class="text-surface-500">N/A</span>';
-        const c = v < 30 ? 'text-green-400' : v > 70 ? 'text-red-400' : 'text-white';
+        if (v === null || v === undefined) return '<span class="text-gray-400">N/A</span>';
+        const c = v < 30 ? 'text-green-600' : v > 70 ? 'text-red-500' : 'text-gray-700';
         return `<span class="${c}">${v.toFixed(1)}</span>`;
       }
     },
@@ -114,15 +114,15 @@ export function buildScreenerColumns() {
         return `<span title="${s.trend || ''}">${map[s.trend] || '—'}</span>`;
       }
     },
-    { key: 'pe', class: 'text-right tabular-nums text-surface-300', render: s => s.pe?.toFixed(1) || '—' },
+    { key: 'pe', class: 'text-right tabular-nums text-gray-600', render: s => s.pe?.toFixed(1) || '—' },
     { key: 'returnMonthly', class: 'text-right tabular-nums', render: s => UIManager.formatPercent(s.returnMonthly) },
     {
       key: 'isFno', class: 'text-center', render: s =>
-        s.isFno ? '<span class="text-xs bg-blue-900 text-blue-300 px-1.5 py-0.5 rounded">F&O</span>' : ''
+        s.isFno ? '<span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">F&O</span>' : ''
     },
     {
       key: 'institutionalFlag', class: 'text-center', render: s =>
-        s.institutionalFlag ? '<span class="text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded">★ INST</span>' : ''
+        s.institutionalFlag ? '<span class="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">★ INST</span>' : ''
     },
   ];
 }

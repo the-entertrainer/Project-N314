@@ -60,13 +60,17 @@ export class YahooFetcher {
     const scoreMap = ScoringEngine.scoreAll(State.stocks);
     ScoringEngine.applyScoresToState(State.stocks, scoreMap);
 
-    // Fetch history for top 100
-    const top100 = State.getTopN(100);
-    await this.fetchHistoryBatch(top100, (done, total) => {
-      if (onProgress) onProgress(batches.length + done, batches.length + total);
-    });
-
-    State.setFetchStatus('done');
+    // Fetch history for top 100 — errors are non-fatal, status always goes to done
+    try {
+      const top100 = State.getTopN(100);
+      await this.fetchHistoryBatch(top100, (done, total) => {
+        if (onProgress) onProgress(batches.length + done, batches.length + total);
+      });
+    } catch (e) {
+      console.warn('History batch failed:', e);
+    } finally {
+      State.setFetchStatus('done');
+    }
   }
 
   static async fetchHistoryBatch(stocks, onProgress) {

@@ -4,27 +4,140 @@
 
 @layer base {
   * { box-sizing: border-box; }
+
+  html {
+    /* Prevent tap zoom on double-tap */
+    touch-action: manipulation;
+  }
+
   body {
-    @apply bg-surface-900 text-white;
+    background: linear-gradient(135deg, #e8f4fd 0%, #f0e8ff 50%, #fdf0e8 100%);
+    background-attachment: fixed;
+    color: #1a1a2e;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  button, a, [role="button"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 44px;
+  }
+
+  input, select, textarea {
+    /* Prevent iOS zoom on focus (must be >= 16px) */
+    font-size: 16px;
+    touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
-  input, select, textarea, button {
-    @apply outline-none;
+
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 4px; }
+}
+
+@layer components {
+  /* Glass card */
+  .glass {
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04);
   }
-  ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+
+  .glass-dark {
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
-  ::-webkit-scrollbar-track {
-    @apply bg-surface-800;
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 2px 16px rgba(0,0,0,0.05);
+    border-radius: 1rem;
+    transition: box-shadow 0.2s, transform 0.2s;
   }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-surface-600 rounded;
+
+  .glass-card:hover {
+    box-shadow: 0 8px 32px rgba(99,102,241,0.15);
+    transform: translateY(-1px);
+  }
+
+  /* Button styles */
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    font-weight: 600;
+    border-radius: 0.75rem;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+    touch-action: manipulation;
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #5558e8, #7c4de8);
+    box-shadow: 0 4px 16px rgba(99,102,241,0.4);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .btn-secondary {
+    background: rgba(255,255,255,0.8);
+    color: #374151;
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius: 0.75rem;
+    transition: all 0.2s;
+    touch-action: manipulation;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255,255,255,1);
+    border-color: rgba(99,102,241,0.4);
+  }
+
+  /* Tab styles */
+  .tab-active {
+    color: #6366f1;
+    border-color: #6366f1;
+    background: rgba(99,102,241,0.08);
+  }
+
+  .tab-inactive {
+    color: #6b7280;
+    border-color: transparent;
+  }
+
+  .tab-inactive:hover {
+    color: #374151;
+    background: rgba(0,0,0,0.04);
   }
 }
 
 @layer utilities {
   .tab-content {
     scroll-behavior: smooth;
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-mesh {
+    background:
+      radial-gradient(at 20% 20%, rgba(99,102,241,0.12) 0px, transparent 50%),
+      radial-gradient(at 80% 80%, rgba(139,92,246,0.10) 0px, transparent 50%),
+      radial-gradient(at 60% 30%, rgba(236,72,153,0.06) 0px, transparent 50%);
   }
 }

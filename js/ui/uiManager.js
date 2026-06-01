@@ -32,7 +32,7 @@ export class UIManager {
     el.innerHTML = `
       <div class="flex flex-col items-center justify-center py-16 gap-4">
         <div class="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-        <p class="text-surface-400 text-sm">${message}</p>
+        <p class="text-gray-500 text-sm">${message}</p>
       </div>`;
   }
 
@@ -42,10 +42,10 @@ export class UIManager {
     const pct = total > 0 ? Math.round((current / total) * 100) : 0;
     el.innerHTML = `
       <div class="flex flex-col items-center justify-center py-16 gap-4 px-8">
-        <div class="w-full bg-surface-700 rounded-full h-3">
+        <div class="w-full bg-gray-200 rounded-full h-3">
           <div class="bg-accent h-3 rounded-full transition-all duration-500" style="width:${pct}%"></div>
         </div>
-        <p class="text-surface-400 text-sm">${label || `Fetching data... ${current}/${total}`}</p>
+        <p class="text-gray-500 text-sm">${label || `Fetching data... ${current}/${total}`}</p>
       </div>`;
   }
 
@@ -55,7 +55,7 @@ export class UIManager {
     el.innerHTML = `
       <div class="flex flex-col items-center justify-center py-16 gap-4">
         <div class="text-red-400 text-4xl">⚠</div>
-        <p class="text-surface-300 text-center">${message}</p>
+        <p class="text-gray-600 text-center">${message}</p>
         ${retryFn ? '<button id="retry-btn" class="btn-primary px-4 py-2 rounded-lg">Retry</button>' : ''}
       </div>`;
     if (retryFn) {
@@ -72,10 +72,10 @@ export class UIManager {
       document.body.appendChild(modal);
     }
     modal.innerHTML = `
-      <div class="bg-surface-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
-        <div class="flex items-center justify-between p-5 border-b border-surface-700">
-          <h2 class="text-lg font-bold text-white">${title}</h2>
-          <button id="modal-close" class="text-surface-400 hover:text-white text-2xl leading-none">&times;</button>
+      <div class="bg-white/95 backdrop-blur rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
+        <div class="flex items-center justify-between p-5 border-b border-gray-200">
+          <h2 class="text-lg font-bold text-gray-800">${title}</h2>
+          <button id="modal-close" class="text-gray-400 hover:text-gray-700 text-2xl leading-none" style="min-height:44px;min-width:44px;display:flex;align-items:center;justify-content:center;">&times;</button>
         </div>
         <div class="flex-1 overflow-y-auto p-5">${content}</div>
       </div>`;
@@ -116,13 +116,13 @@ export class UIManager {
       'A': 'bg-lime-500 text-black', 'BBB': 'bg-yellow-400 text-black',
       'BB': 'bg-orange-400 text-black', 'B': 'bg-red-400 text-white', 'C': 'bg-red-700 text-white'
     };
-    return map[grade] || 'bg-surface-600 text-white';
+    return map[grade] || 'bg-gray-300 text-gray-800';
   }
 
   static scoreBar(score) {
     const w = Math.min(100, Math.max(0, score));
     const color = w >= 75 ? '#10b981' : w >= 55 ? '#f59e0b' : '#ef4444';
-    return `<div class="relative h-2 bg-surface-700 rounded-full w-full"><div class="absolute left-0 top-0 h-2 rounded-full" style="width:${w}%;background:${color}"></div></div>`;
+    return `<div class="relative h-2 bg-gray-200 rounded-full w-full"><div class="absolute left-0 top-0 h-2 rounded-full" style="width:${w}%;background:${color}"></div></div>`;
   }
 }
 

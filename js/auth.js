@@ -48,19 +48,11 @@ export class AuthManager {
   static showSettingsModal() {
     const modal = document.getElementById('settings-modal');
     if (!modal) return;
-    const keyInput = document.getElementById('gemini-key-input');
-    if (keyInput) keyInput.value = State.getGeminiKey();
     modal.classList.remove('hidden');
-
-    const close = document.getElementById('settings-close');
-    const save = document.getElementById('settings-save');
-    if (close) close.onclick = () => modal.classList.add('hidden');
-    if (save) save.onclick = () => {
-      State.setGeminiKey(keyInput.value.trim());
-      modal.classList.add('hidden');
-      document.dispatchEvent(new CustomEvent('settingsSaved'));
-    };
-    modal.onclick = (e) => { if (e.target === modal) modal.classList.add('hidden'); };
+    const close = () => modal.classList.add('hidden');
+    document.getElementById('settings-close').onclick = close;
+    document.getElementById('settings-close-btn').onclick = close;
+    modal.onclick = (e) => { if (e.target === modal) close(); };
   }
 }
 
