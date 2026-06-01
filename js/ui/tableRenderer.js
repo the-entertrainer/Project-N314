@@ -1,4 +1,5 @@
 import UIManager from './uiManager.js';
+import { sparkline, rsiIndicator, scoreBar } from './sparkline.js';
 
 const ROW_HEIGHT = 52;
 const BUFFER = 10;
@@ -81,48 +82,52 @@ export class TableRenderer {
   }
 }
 
+const TREND_SVG = {
+  BULLISH: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`,
+  BEARISH: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>`,
+  MIXED_BULLISH: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`,
+  MIXED_BEARISH: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`,
+  NEUTRAL: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+};
+
 export function buildScreenerColumns() {
   return [
-    { key: 'rank', class: 'text-gray-400 w-10', render: (_, i) => `<span class="text-xs">${i + 1}</span>` },
+    { key: 'rank', class: 'text-gray-400 w-8', render: (_, i) => `<span class="text-xs font-mono">${i + 1}</span>` },
     {
-      key: 'ticker', class: 'font-mono text-accent', render: s =>
-        `<div><div class="font-semibold text-gray-800">${s.ticker.replace('.NS', '')}</div><div class="text-xs text-gray-500 truncate max-w-28">${s.name || ''}</div></div>`
+      key: 'ticker', class: 'font-mono', render: s =>
+        `<div><div class="font-semibold text-gray-800 text-sm">${s.ticker.replace('.NS', '')}</div><div class="text-xs text-gray-400 truncate max-w-[6rem]">${s.name || ''}</div></div>`
+    },
+    {
+      key: 'chart', class: 'w-16', render: s =>
+        sparkline(s.rawPrices, 64, 24)
     },
     {
       key: 'cmp', class: 'text-right tabular-nums', render: s =>
-        `<div class="text-gray-800 font-medium">₹${s.cmp?.toFixed(2) || 'N/A'}</div><div class="text-xs">${UIManager.formatPercent(s.returnDaily)}</div>`
+        `<div class="text-gray-800 font-medium text-sm">₹${s.cmp?.toFixed(2) || '—'}</div><div class="text-xs">${UIManager.formatPercent(s.returnDaily)}</div>`
     },
     {
-      key: 'score', class: 'w-24', render: s =>
-        `<div class="flex items-center gap-1"><span class="font-bold text-gray-800 w-6 text-right">${s.score || 0}</span>${UIManager.scoreBar(s.score || 0)}</div>`
+      key: 'score', class: 'w-28', render: s => scoreBar(s.score || 0)
     },
     {
-      key: 'grade', class: 'text-center', render: s =>
+      key: 'grade', class: 'text-center w-12', render: s =>
         `<span class="px-2 py-0.5 rounded text-xs font-bold ${UIManager.gradeColor(s.grade)}">${s.grade || 'C'}</span>`
     },
     {
-      key: 'rsi', class: 'text-right tabular-nums', render: s => {
-        const v = s.rsi;
-        if (v === null || v === undefined) return '<span class="text-gray-400">N/A</span>';
-        const c = v < 30 ? 'text-green-600' : v > 70 ? 'text-red-500' : 'text-gray-700';
-        return `<span class="${c}">${v.toFixed(1)}</span>`;
-      }
+      key: 'rsi', class: 'w-24', render: s => rsiIndicator(s.rsi)
     },
     {
-      key: 'trend', class: 'text-center', render: s => {
-        const map = { BULLISH: '🟢', BEARISH: '🔴', MIXED_BULLISH: '🟡', MIXED_BEARISH: '🟠', NEUTRAL: '⚪' };
-        return `<span title="${s.trend || ''}">${map[s.trend] || '—'}</span>`;
-      }
+      key: 'trend', class: 'text-center w-10', render: s =>
+        `<span title="${s.trend || 'NEUTRAL'}">${TREND_SVG[s.trend] || TREND_SVG.NEUTRAL}</span>`
     },
-    { key: 'pe', class: 'text-right tabular-nums text-gray-600', render: s => s.pe?.toFixed(1) || '—' },
+    { key: 'pe', class: 'text-right tabular-nums text-gray-600 text-xs', render: s => s.pe?.toFixed(1) || '—' },
     { key: 'returnMonthly', class: 'text-right tabular-nums', render: s => UIManager.formatPercent(s.returnMonthly) },
     {
       key: 'isFno', class: 'text-center', render: s =>
-        s.isFno ? '<span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">F&O</span>' : ''
+        s.isFno ? '<span class="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">F&O</span>' : ''
     },
     {
       key: 'institutionalFlag', class: 'text-center', render: s =>
-        s.institutionalFlag ? '<span class="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">★ INST</span>' : ''
+        s.institutionalFlag ? '<span class="text-xs bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-medium">INST</span>' : ''
     },
   ];
 }

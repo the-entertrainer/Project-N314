@@ -6,7 +6,6 @@
   * { box-sizing: border-box; }
 
   html {
-    /* Prevent tap zoom on double-tap */
     touch-action: manipulation;
   }
 
@@ -26,7 +25,6 @@
   }
 
   input, select, textarea {
-    /* Prevent iOS zoom on focus (must be >= 16px) */
     font-size: 16px;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -38,7 +36,7 @@
 }
 
 @layer components {
-  /* Glass card */
+  /* ─── Glass surfaces ─── */
   .glass {
     background: rgba(255, 255, 255, 0.65);
     backdrop-filter: blur(20px) saturate(180%);
@@ -69,7 +67,16 @@
     transform: translateY(-1px);
   }
 
-  /* Button styles */
+  .modal-glass {
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
+    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.12), 0 4px 16px rgba(99,102,241,0.08);
+    border-radius: 1.25rem;
+  }
+
+  /* ─── Buttons ─── */
   .btn-primary {
     background: linear-gradient(135deg, #6366f1, #8b5cf6);
     color: white;
@@ -86,9 +93,7 @@
     transform: translateY(-1px);
   }
 
-  .btn-primary:active {
-    transform: translateY(0);
-  }
+  .btn-primary:active { transform: translateY(0); }
 
   .btn-secondary {
     background: rgba(255,255,255,0.8);
@@ -104,7 +109,30 @@
     border-color: rgba(99,102,241,0.4);
   }
 
-  /* Tab styles */
+  /* Icon-only button (36×36) */
+  .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    border-radius: 0.625rem;
+    background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.6);
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.18s;
+    touch-action: manipulation;
+  }
+
+  .btn-icon:hover {
+    background: rgba(99,102,241,0.08);
+    color: #6366f1;
+    border-color: rgba(99,102,241,0.25);
+  }
+
+  /* ─── Tabs ─── */
   .tab-active {
     color: #6366f1;
     border-color: #6366f1;
@@ -119,6 +147,251 @@
   .tab-inactive:hover {
     color: #374151;
     background: rgba(0,0,0,0.04);
+  }
+
+  /* ─── Market breadth strip ─── */
+  .market-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0.5rem 0;
+  }
+
+  .market-strip::-webkit-scrollbar { display: none; }
+
+  .market-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+    background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.5);
+    flex-shrink: 0;
+  }
+
+  /* ─── Metric cards ─── */
+  .metric-card {
+    background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.5);
+    border-radius: 0.875rem;
+    padding: 0.875rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    transition: box-shadow 0.2s;
+  }
+
+  .metric-card:hover {
+    box-shadow: 0 4px 20px rgba(99,102,241,0.1);
+  }
+
+  .metric-card .metric-label {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9ca3af;
+  }
+
+  .metric-card .metric-value {
+    font-size: 1.375rem;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.2;
+  }
+
+  .metric-card .metric-sub {
+    font-size: 0.6875rem;
+    color: #6b7280;
+  }
+
+  /* ─── Stat chip (inline compact) ─── */
+  .stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.1875rem 0.5rem;
+    border-radius: 0.5rem;
+    background: rgba(99,102,241,0.07);
+    color: #4f46e5;
+  }
+
+  /* ─── Grade badge ─── */
+  .grade-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── Table (light theme) ─── */
+  .table-light th {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9ca3af;
+    padding: 0.625rem 0.75rem;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .table-light td {
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    vertical-align: middle;
+  }
+
+  .table-light tr:hover td {
+    background: rgba(99,102,241,0.03);
+  }
+
+  /* ─── RSI bar ─── */
+  .rsi-bar-track {
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ─── Status dots ─── */
+  .dot-idle    { background: #94a3b8; }
+  .dot-loading { background: #f59e0b; animation: pulse-dot 1s infinite; }
+  .dot-done    { background: #10b981; }
+  .dot-error   { background: #f43f5e; }
+
+  /* ─── Help / Tour overlay ─── */
+  #tour-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9990;
+    pointer-events: none;
+    background: rgba(15,23,42,0.45);
+    backdrop-filter: blur(1px);
+    -webkit-backdrop-filter: blur(1px);
+    animation: fade-in-up 0.2s ease;
+  }
+
+  .tour-spotlight {
+    position: relative;
+    z-index: 9995 !important;
+    outline: 2.5px solid #6366f1;
+    outline-offset: 3px;
+    border-radius: 0.5rem;
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.2), 0 0 0 9999px rgba(15,23,42,0.45);
+    pointer-events: all;
+  }
+
+  #tour-tooltip {
+    position: fixed;
+    z-index: 9999;
+    max-width: 300px;
+    min-width: 220px;
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius: 1rem;
+    padding: 1rem;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.16);
+    animation: slide-in-right 0.2s ease;
+  }
+
+  #tour-tooltip .tour-step-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6366f1;
+    margin-bottom: 0.375rem;
+  }
+
+  #tour-tooltip .tour-title {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.375rem;
+  }
+
+  #tour-tooltip .tour-body {
+    font-size: 0.8125rem;
+    color: #4b5563;
+    line-height: 1.5;
+    margin-bottom: 0.875rem;
+  }
+
+  .tour-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .tour-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.375rem 0.875rem;
+    border-radius: 0.625rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-height: 32px;
+    touch-action: manipulation;
+  }
+
+  .tour-btn-primary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+  }
+
+  .tour-btn-primary:hover {
+    box-shadow: 0 4px 12px rgba(99,102,241,0.45);
+    transform: translateY(-1px);
+  }
+
+  .tour-btn-ghost {
+    background: transparent;
+    color: #9ca3af;
+  }
+
+  .tour-btn-ghost:hover { color: #4b5563; }
+
+  .tour-btn-skip {
+    background: transparent;
+    color: #9ca3af;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .tour-dots {
+    display: flex;
+    align-items: center;
+    gap: 0.3125rem;
+  }
+
+  .tour-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #e5e7eb;
+    transition: all 0.2s;
+  }
+
+  .tour-dot.active {
+    background: #6366f1;
+    width: 16px;
+    border-radius: 3px;
   }
 }
 
@@ -140,4 +413,68 @@
       radial-gradient(at 80% 80%, rgba(139,92,246,0.10) 0px, transparent 50%),
       radial-gradient(at 60% 30%, rgba(236,72,153,0.06) 0px, transparent 50%);
   }
+}
+
+/* ─── Keyframe animations ─── */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes bar-fill {
+  from { width: 0; }
+}
+
+@keyframes draw-sparkline {
+  from { stroke-dashoffset: 1000; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* Score/RSI fill animation on paint */
+.score-fill, .rsi-bar-fill {
+  animation: bar-fill 0.8s ease both;
+}
+
+/* Sparkline line animation */
+.sparkline-line {
+  stroke-dasharray: 1000;
+  animation: draw-sparkline 1s ease both;
+}
+
+/* Spin utility for refresh icon */
+.spin-slow {
+  animation: spin-slow 1.4s linear infinite;
+}
+
+/* Fade-in for cards/rows */
+.fade-in-up {
+  animation: fade-in-up 0.3s ease both;
+}
+
+/* Loading shimmer for skeleton states */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e9eef5 50%, #f1f5f9 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 0.375rem;
 }

@@ -8,6 +8,7 @@ import { initFno } from './sections/fnoSection.js';
 import { initWatchlist } from './sections/watchlistSection.js';
 import UIManager from './ui/uiManager.js';
 import MathEngine from './engines/mathEngine.js';
+import { helpTour } from './ui/helpSystem.js';
 
 let _activeTab = 'screener';
 const _initializedTabs = new Set();
@@ -19,6 +20,7 @@ function init() {
   AuthManager.initializeAuth(() => {
     _setupNavigation();
     _setupSettings();
+    _setupHelp();
     _setupStatusDot();
     _navigateTo('screener');
     _registerServiceWorker();
@@ -78,6 +80,12 @@ function _setupStatusDot() {
 function _setupSettings() {
   document.getElementById('btn-settings')?.addEventListener('click', () => {
     AuthManager.showSettingsModal();
+  });
+}
+
+function _setupHelp() {
+  document.getElementById('btn-help')?.addEventListener('click', () => {
+    helpTour.start(_activeTab);
   });
 }
 

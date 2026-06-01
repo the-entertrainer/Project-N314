@@ -82,17 +82,18 @@ function _buildTableHTML() {
       <table class="w-full text-left border-collapse">
         <thead class="sticky top-0 z-10" style="background:rgba(255,255,255,0.92);backdrop-filter:blur(12px);">
           <tr class="border-b border-gray-200">
-            <th class="px-3 py-2 text-xs text-gray-500 w-10">#</th>
-            <th class="px-3 py-2 text-xs text-gray-500 cursor-pointer hover:text-gray-800" data-sort="ticker">Stock</th>
-            <th class="px-3 py-2 text-xs text-gray-500 text-right cursor-pointer hover:text-gray-800" data-sort="cmp">CMP</th>
-            <th class="px-3 py-2 text-xs text-gray-500 cursor-pointer hover:text-gray-800" data-sort="score">Score</th>
-            <th class="px-3 py-2 text-xs text-gray-500 text-center cursor-pointer hover:text-gray-800" data-sort="grade">Grade</th>
-            <th class="px-3 py-2 text-xs text-gray-500 text-right cursor-pointer hover:text-gray-800" data-sort="rsi">RSI</th>
-            <th class="px-3 py-2 text-xs text-gray-500 text-center">Trend</th>
-            <th class="px-3 py-2 text-xs text-gray-500 text-right cursor-pointer hover:text-gray-800" data-sort="pe">P/E</th>
-            <th class="px-3 py-2 text-xs text-gray-500 text-right cursor-pointer hover:text-gray-800" data-sort="returnMonthly">1M%</th>
-            <th class="px-3 py-2 text-xs text-gray-500 text-center">F&O</th>
-            <th class="px-3 py-2 text-xs text-gray-500 text-center">Inst</th>
+            <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 w-8">#</th>
+            <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 cursor-pointer hover:text-gray-700" data-sort="ticker">Stock</th>
+            <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 w-16">Chart</th>
+            <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 text-right cursor-pointer hover:text-gray-700" data-sort="cmp">CMP</th>
+            <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 w-28 cursor-pointer hover:text-gray-700" data-sort="score">Score</th>
+            <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 text-center w-12 cursor-pointer hover:text-gray-700" data-sort="grade">Grade</th>
+            <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 w-24 cursor-pointer hover:text-gray-700" data-sort="rsi">RSI</th>
+            <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 text-center w-10">Trend</th>
+            <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 text-right cursor-pointer hover:text-gray-700" data-sort="pe">P/E</th>
+            <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 text-right cursor-pointer hover:text-gray-700" data-sort="returnMonthly">1M%</th>
+            <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 text-center">F&O</th>
+            <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400 text-center">Inst</th>
           </tr>
         </thead>
         <tbody id="screener-tbody"></tbody>
@@ -143,7 +144,7 @@ function _showStockModal(stock) {
 }
 
 function _statCard(label, value) {
-  return `<div class="bg-white/80 border border-gray-100 rounded-lg p-3"><div class="text-xs text-gray-500">${label}</div><div class="text-gray-800 font-semibold mt-0.5">${value || 'N/A'}</div></div>`;
+  return `<div class="metric-card"><div class="metric-label">${label}</div><div class="text-gray-800 font-semibold text-base mt-0.5">${value || '—'}</div></div>`;
 }
 
 function _applyFilters(stocks) {
