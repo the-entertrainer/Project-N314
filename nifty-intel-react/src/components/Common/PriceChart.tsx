@@ -72,7 +72,7 @@ export function PriceChart({
               border: '1px solid #e5e7eb',
               borderRadius: '6px',
             }}
-            formatter={(value: number) => `₹${value.toFixed(2)}`}
+            formatter={(value: any) => `₹${Number(value).toFixed(2)}`}
             labelStyle={{ color: '#000' }}
           />
           <Line

@@ -26,7 +26,7 @@ const typeIcons = {
   warning: '⚠',
 };
 
-function Toast({ toast, onClose }: ToastProps) {
+export function Toast({ toast, onClose }: ToastProps) {
   useEffect(() => {
     const timer = setTimeout(
       () => onClose(toast.id),

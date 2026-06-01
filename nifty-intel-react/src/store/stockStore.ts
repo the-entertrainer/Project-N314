@@ -50,7 +50,9 @@ export const useStockStore = create<StockStore>((set, get) => ({
     stocks.forEach((s) => {
       if (s.ticker) {
         const existing = current.get(s.ticker);
-        current.set(s.ticker, { ...existing, ...s });
+        if (existing) {
+          current.set(s.ticker, { ...existing, ...s } as Stock);
+        }
       }
     });
     set({

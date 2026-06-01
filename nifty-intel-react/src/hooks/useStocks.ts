@@ -24,9 +24,10 @@ export function useStocksData() {
         for (const s of NIFTY500) {
           allStocks.set(s.ticker, {
             ...s,
+            institutionalFlag: false,
             score: 0,
             grade: 'C',
-          });
+          } as Stock);
         }
         store.setStocks([...allStocks.values()]);
 

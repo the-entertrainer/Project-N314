@@ -60,13 +60,13 @@ export function PostMarketSummary() {
     );
   }
 
-  const sentimentColor = {
+  const sentimentColor: Record<string, string> = {
     BULLISH: 'bg-green-50 border-green-200',
     NEUTRAL: 'bg-yellow-50 border-yellow-200',
     BEARISH: 'bg-red-50 border-red-200',
   };
 
-  const sentimentText = {
+  const sentimentText: Record<string, string> = {
     BULLISH: 'text-green-900',
     NEUTRAL: 'text-yellow-900',
     BEARISH: 'text-red-900',
