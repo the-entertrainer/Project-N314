@@ -50,6 +50,13 @@ class StateManager {
     this._emit('stocks_all', null);
   }
 
+  patchStocks(stocksArray) {
+    for (const s of stocksArray) {
+      if (s.ticker) this.stocks.set(s.ticker, { ...this.stocks.get(s.ticker), ...s });
+    }
+    this._emit('stocks_all', null);
+  }
+
   setNiftyData(data) {
     this.niftyData = data;
     this._emit('niftyData', data);

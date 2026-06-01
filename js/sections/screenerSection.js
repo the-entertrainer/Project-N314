@@ -40,30 +40,18 @@ export async function initScreener() {
 }
 
 async function _triggerFetch() {
-  if (_renderer) {
-    _renderer.destroy();
-    _renderer = null;
-  }
-  UIManager.showProgress('screener-content', 0, 1, 'Connecting to Yahoo Finance...');
+  const countEl = document.getElementById('screener-count');
+  if (countEl) countEl.textContent = 'Loading...';
 
   try {
     await YahooFetcher.fetchAll500((current, total) => {
-      if (!_renderer) {
-        // Table not yet rendered — safe to show full progress overlay
-        UIManager.showProgress('screener-content', current, total, `Fetching quotes ${current}/${total}...`);
-      } else {
-        // Table already rendered — update the lightweight header status only
-        const countEl = document.getElementById('screener-count');
-        if (countEl) countEl.textContent = `Enriching data ${current}/${total}...`;
-      }
+      if (countEl) countEl.textContent = `Loading ${current}/${total}...`;
     });
   } catch (e) {
     UIManager.showError('screener-content', `Data fetch failed: ${e.message}`, _triggerFetch);
     UIManager.showToast(`Fetch error: ${e.message}`, 'error');
   }
 
-  // Ensure count shows final result
-  const countEl = document.getElementById('screener-count');
   if (countEl) countEl.textContent = `${_filteredData.length} stocks`;
 }
 

@@ -15,55 +15,38 @@ export class YahooFetcher {
   static async fetchAll500(onProgress) {
     const tickers = NIFTY500.map(s => s.ticker);
     const batches = [];
-    for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
+    for (let i = 0; i < tickers.length; i += BATCH_SIZE)
       batches.push(tickers.slice(i, i + BATCH_SIZE));
-    }
 
     State.setFetchStatus('loading');
+
+    // Pre-populate from static data and render the table immediately
     const allStocks = new Map();
-
-    // Pre-populate from static data
-    for (const s of NIFTY500) {
-      allStocks.set(s.ticker, { ...s, score: 0, grade: 'C' });
-    }
-
-    for (let i = 0; i < batches.length; i++) {
-      if (onProgress) onProgress(i + 1, batches.length);
-      try {
-        const quotes = await this._fetchBatchQuotes(batches[i]);
-        for (const q of quotes) {
-          const existing = allStocks.get(q.symbol) || {};
-          allStocks.set(q.symbol, {
-            ...existing,
-            ticker: q.symbol,
-            cmp: q.regularMarketPrice,
-            returnDaily: q.regularMarketChangePercent,
-            high52w: q.fiftyTwoWeekHigh,
-            low52w: q.fiftyTwoWeekLow,
-            marketCap: q.marketCap,
-            pe: q.trailingPE,
-            pb: q.priceToBook,
-            eps: q.trailingEps,
-            divYield: q.trailingAnnualDividendYield ? q.trailingAnnualDividendYield * 100 : null,
-            beta: q.beta,
-            volume: q.regularMarketVolume,
-            avgVolume: q.averageVolume,
-            volumeVsAvg: q.averageVolume > 0 ? q.regularMarketVolume / q.averageVolume : 1,
-          });
-        }
-      } catch (e) {
-        console.warn(`Batch ${i + 1} failed:`, e);
-      }
-      await this._yield();
-    }
-
+    for (const s of NIFTY500) allStocks.set(s.ticker, { ...s, score: 0, grade: 'C' });
     State.setAllStocks([...allStocks.values()]);
 
-    // Score all 500
+    // Fetch all batches in parallel — each one patches state as it lands
+    let completed = 0;
+    const batchPromises = batches.map((batch, i) =>
+      this._fetchBatchQuotes(batch)
+        .then(quotes => {
+          for (const q of quotes) {
+            allStocks.set(q.symbol, { ...allStocks.get(q.symbol), ...this._mapQuote(q) });
+          }
+          completed++;
+          if (onProgress) onProgress(completed, batches.length);
+          State.patchStocks(quotes.map(q => allStocks.get(q.symbol)).filter(Boolean));
+        })
+        .catch(e => { console.warn(`Batch ${i + 1} failed:`, e); completed++; })
+    );
+    await Promise.allSettled(batchPromises);
+
+    // Score all 500 with full quote data, re-render sorted table
     const scoreMap = ScoringEngine.scoreAll(State.stocks);
     ScoringEngine.applyScoresToState(State.stocks, scoreMap);
+    State.patchStocks([...State.stocks.values()]);
 
-    // Fetch history for top 100 — errors are non-fatal, status always goes to done
+    // Fetch history for top 100 — errors are non-fatal
     try {
       const top100 = State.getTopN(100);
       await this.fetchHistoryBatch(top100, (done, total) => {
@@ -74,6 +57,25 @@ export class YahooFetcher {
     } finally {
       State.setFetchStatus('done');
     }
+  }
+
+  static _mapQuote(q) {
+    return {
+      ticker: q.symbol,
+      cmp: q.regularMarketPrice,
+      returnDaily: q.regularMarketChangePercent,
+      high52w: q.fiftyTwoWeekHigh,
+      low52w: q.fiftyTwoWeekLow,
+      marketCap: q.marketCap,
+      pe: q.trailingPE,
+      pb: q.priceToBook,
+      eps: q.trailingEps,
+      divYield: q.trailingAnnualDividendYield ? q.trailingAnnualDividendYield * 100 : null,
+      beta: q.beta,
+      volume: q.regularMarketVolume,
+      avgVolume: q.averageVolume,
+      volumeVsAvg: q.averageVolume > 0 ? q.regularMarketVolume / q.averageVolume : 1,
+    };
   }
 
   static async fetchHistoryBatch(stocks, onProgress) {
