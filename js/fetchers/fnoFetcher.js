@@ -50,6 +50,7 @@ DOW_FUTURES: [percent change like +0.3 or -0.5]`;
       };
       _cache = result;
       _cacheTime = Date.now();
+      State.setFnoCache(result);
       return result;
     } catch (e) {
       console.warn('FNO data fetch failed:', e);
@@ -61,8 +62,8 @@ DOW_FUTURES: [percent change like +0.3 or -0.5]`;
     const result = {};
     const lines = text.split('\n');
     for (const line of lines) {
-      const m = line.match(/^([A-Z_]+):\s*([+-]?\d+\.?\d*)/);
-      if (m) result[m[1]] = parseFloat(m[2]);
+      const m = line.trim().match(/^([A-Z_]+):\s*([+-]?\d[\d.,]*)/);
+      if (m) result[m[1]] = parseFloat(m[2].replace(/,/g, ''));
     }
     return result;
   }

@@ -42,17 +42,32 @@ export class AuthManager {
         input.value = '';
         input.focus();
       }
-    });
+    }, { once: true });
   }
 
   static showSettingsModal() {
     const modal = document.getElementById('settings-modal');
     if (!modal) return;
+
+    const keyInput = document.getElementById('gemini-key-input');
+    if (keyInput) keyInput.value = State.getGeminiKey();
+
     modal.classList.remove('hidden');
+
     const close = () => modal.classList.add('hidden');
     document.getElementById('settings-close').onclick = close;
-    document.getElementById('settings-close-btn').onclick = close;
     modal.onclick = (e) => { if (e.target === modal) close(); };
+
+    const saveBtn = document.getElementById('settings-save-btn');
+    if (saveBtn) {
+      saveBtn.onclick = () => {
+        const key = keyInput?.value?.trim();
+        if (key) {
+          State.setGeminiKey(key);
+        }
+        close();
+      };
+    }
   }
 }
 

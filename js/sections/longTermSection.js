@@ -39,9 +39,9 @@ async function _generateLongTermList() {
     const candidates = [...State.stocks.values()]
       .filter(s =>
         (s.grade === 'AAA' || s.grade === 'AA' || s.grade === 'A') &&
-        (s.debtEquity === null || s.debtEquity < 1.5) &&
-        (s.roe === null || s.roe > 10) &&
-        (s.profitMargin === null || s.profitMargin > 8)
+        (s.debtEquity == null || s.debtEquity < 1) &&
+        (s.roe == null || s.roe > 15) &&
+        (s.profitMargin == null || s.profitMargin > 12)
       )
       .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, 40);
@@ -98,10 +98,12 @@ Use the exact JSON schema below for your 25 picks.`;
     };
 
     const result = await GeminiFetcher.analyzeStructured(prompt, schema, apiKey);
-    const picks = (result.picks || []).map(p => {
-      const stockData = State.stocks.get(p.ticker + '.NS') || State.stocks.get(p.ticker) || {};
-      return { ...stockData, ...p, ticker: (p.ticker.includes('.NS') ? p.ticker : p.ticker + '.NS') };
-    });
+    const picks = (result.picks || [])
+      .filter(p => p.ticker)
+      .map(p => {
+        const stockData = State.stocks.get(p.ticker + '.NS') || State.stocks.get(p.ticker) || {};
+        return { ...stockData, ...p, ticker: (p.ticker.includes('.NS') ? p.ticker : p.ticker + '.NS') };
+      });
 
     State.setLongTermList(picks);
     UIManager.showToast(`${picks.length} long-term picks generated!`, 'success');

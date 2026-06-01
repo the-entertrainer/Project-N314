@@ -70,6 +70,10 @@ async function _generateStrategy() {
 
     if (stratType === 'IRON_CONDOR') {
       strategy = FnoEngine.buildIronCondor(spot, expiry, historicalVol);
+      if (!strategy) {
+        UIManager.showToast('Iron Condor invalid — no credit received at current volatility. Try a further expiry.', 'warning');
+        return;
+      }
     } else if (stratType === 'BULL_PUT_SPREAD') {
       const atr = stock?.atr || spot * 0.02;
       strategy = FnoEngine.buildBullPutSpread(spot, spot - atr, spot - atr * 2, expiry, historicalVol);

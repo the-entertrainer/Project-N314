@@ -37,6 +37,14 @@ export class TableRenderer {
 
   _render() {
     if (!this.container || !this.tableBody) return;
+
+    if (this.data.length === 0) {
+      this.tableBody.innerHTML = '<tr><td colspan="12" class="px-4 py-12 text-center text-gray-400 text-sm">No stocks match your filters.</td></tr>';
+      if (this.spacerTop) this.spacerTop.style.height = '0px';
+      if (this.spacerBottom) this.spacerBottom.style.height = '0px';
+      return;
+    }
+
     const scrollTop = this.container.scrollTop;
     const containerHeight = this.container.clientHeight;
     const totalRows = this.data.length;

@@ -152,7 +152,6 @@ export const LOT_SIZES = {
   'ANGELONE': 400,
   'MCX': 250,
   'CDSL': 600,
-  'BAJAJ-AUTO': 250,
   'KAJARIA': 500,
   'DIXON': 125,
   'CGPOWER': 1750,
@@ -172,7 +171,6 @@ export const LOT_SIZES = {
   'AUBANK': 1000,
   'PNBHOUSING': 1500,
   'VARUNBEV': 750,
-  'HCLTECH': 700,
   'ASTRAL': 400,
   'MOTILALOFS': 275,
 };

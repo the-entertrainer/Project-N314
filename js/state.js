@@ -16,6 +16,7 @@ class StateManager {
     this.postMarketLog = [];
     this.lastFetchTimestamp = null;
     this.fetchStatus = 'idle';
+    this.fnoCache = null;
     this._listeners = new Map();
   }
 
@@ -65,6 +66,10 @@ class StateManager {
   setFetchStatus(status) {
     this.fetchStatus = status;
     this._emit('fetchStatus', status);
+  }
+
+  setFnoCache(data) {
+    this.fnoCache = data;
   }
 
   addFnoPosition(position) {

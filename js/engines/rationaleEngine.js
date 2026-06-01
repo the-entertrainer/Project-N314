@@ -104,7 +104,9 @@ export class RationaleEngine {
     const growthDrivers = this._inferGrowthDrivers(stock);
     const valuationCase = this._inferValuation(stock);
     const technicalEntry = this._inferTechnicalEntry(stock);
-    const tenYearThesis = `${stock.name} operates in a sector with long structural tailwinds. With ${stock.roe > 15 ? 'consistently high ROE' : 'improving returns'} and ${stock.debtEquity < 0.5 ? 'a clean balance sheet' : 'manageable leverage'}, the company is positioned to compound wealth over a decade.`;
+    const roePart = stock.roe != null ? (stock.roe > 15 ? 'consistently high ROE' : 'improving returns') : 'strong fundamentals';
+    const dePart = stock.debtEquity != null ? (stock.debtEquity < 0.5 ? 'a clean balance sheet' : 'manageable leverage') : 'a solid balance sheet';
+    const tenYearThesis = `${stock.name} operates in a sector with long structural tailwinds. With ${roePart} and ${dePart}, the company is positioned to compound wealth over a decade.`;
 
     return { moat, growthDrivers, valuationCase, technicalEntry, tenYearThesis };
   }

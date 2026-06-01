@@ -49,7 +49,6 @@ function _navigateTo(tabId) {
   });
 
   if (!_initializedTabs.has(tabId)) {
-    _initializedTabs.add(tabId);
     _initTab(tabId);
   }
 }
@@ -62,6 +61,7 @@ async function _initTab(tabId) {
     else if (tabId === 'strategy') await initStrategy();
     else if (tabId === 'fno') await initFno();
     else if (tabId === 'watchlist') initWatchlist();
+    _initializedTabs.add(tabId);
   } catch (e) {
     console.error(`Error initializing tab ${tabId}:`, e);
     UIManager.showToast(`Error loading ${tabId}: ${e.message}`, 'error');

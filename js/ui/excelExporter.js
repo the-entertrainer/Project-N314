@@ -1,4 +1,5 @@
 import State from '../state.js';
+import MathEngine from '../engines/mathEngine.js';
 
 export class ExcelExporter {
   static async generate() {
@@ -12,7 +13,7 @@ export class ExcelExporter {
 
     // Sheet 1: Dashboard
     const nifty = State.niftyData;
-    const fno = State._fnoCache || {};
+    const fno = State.fnoCache || {};
     const dashData = [
       ['NIFTY INTEL — Daily Report', date],
       [],
@@ -94,6 +95,18 @@ export class ExcelExporter {
       ['PIVOT LEVELS'],
       ['Pivot', 'R1', 'R2', 'R3', 'S1', 'S2', 'S3'],
     ];
+    const nd = State.niftyData;
+    if (nd?.rawPrices?.length >= 5) {
+      const prices = nd.rawPrices;
+      const n = prices.length;
+      const high = Math.max(...prices.slice(-5));
+      const low = Math.min(...prices.slice(-5));
+      const close = prices[n - 1];
+      const p = MathEngine.calculatePivots(high, low, close);
+      strategyRows.push([p.pivot?.toFixed(0), p.r1?.toFixed(0), p.r2?.toFixed(0), p.r3?.toFixed(0), p.s1?.toFixed(0), p.s2?.toFixed(0), p.s3?.toFixed(0)]);
+    } else if (fno.niftyClose) {
+      strategyRows.push(['N/A — no OHLC data; Nifty last close: ' + fno.niftyClose]);
+    }
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(strategyRows), 'Strategy_Plan');
 
     // Sheet 7: PostMarket_Log

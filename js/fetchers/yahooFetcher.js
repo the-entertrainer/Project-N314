@@ -98,6 +98,9 @@ export class YahooFetcher {
         stock.rationale = RationaleEngine.buildStockRationale(stock);
       }
     }
+
+    // Push updated scores/rationale to UI
+    State.patchStocks([...State.stocks.values()]);
   }
 
   static async fetchFundamentals(stocks) {
@@ -178,7 +181,7 @@ export class YahooFetcher {
       rsi: rsiArr[n - 1] || null,
       macd: macdData.macdLine[n - 1] || null,
       macdSignal: macdData.signalLine[n - 1] || null,
-      maStatus: macdData.histogram[n - 1] > 0 ? 'BULLISH' : 'BEARISH',
+      maStatus: (macdData.histogram[n - 1] ?? 0) > 0 ? 'BULLISH' : 'BEARISH',
       trend,
       support1, support2, resistance1, resistance2,
       atr,

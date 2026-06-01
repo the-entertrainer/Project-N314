@@ -31,7 +31,11 @@ export class GeminiFetcher {
       const data = await this._handleResponse(res);
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) throw new Error('Empty response from Gemini');
-      return JSON.parse(text);
+      try {
+        return JSON.parse(text);
+      } catch {
+        throw new Error('Gemini returned invalid JSON. Try again.');
+      }
     } catch (e) {
       clearTimeout(timer);
       throw e;

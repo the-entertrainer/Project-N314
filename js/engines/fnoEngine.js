@@ -12,6 +12,7 @@ export class FnoEngine {
     const putCredit = this._estimatePremium(spot, sellPutStrike, daysToExpiry, historicalVol, 'put') -
       this._estimatePremium(spot, buyPutStrike, daysToExpiry, historicalVol, 'put');
     const totalCredit = callCredit + putCredit;
+    if (totalCredit <= 0) return null;
     const wingWidth = buyCallStrike - sellCallStrike;
     const maxLoss = wingWidth - totalCredit;
 
@@ -130,7 +131,7 @@ export class FnoEngine {
 
   static _estimatePremium(spot, strike, days, vol, type) {
     const T = days / 365;
-    if (T <= 0) return Math.max(type === 'call' ? spot - strike : strike - spot, 0);
+    if (T <= 0 || vol <= 0) return Math.max(type === 'call' ? spot - strike : strike - spot, 0);
     const d1 = (Math.log(spot / strike) + (0.065 + 0.5 * vol ** 2) * T) / (vol * Math.sqrt(T));
     const d2 = d1 - vol * Math.sqrt(T);
     if (type === 'call') {
