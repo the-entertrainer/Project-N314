@@ -105,8 +105,7 @@ For each of your 25 selected stocks, provide a comprehensive investment thesis i
     State.setLongTermList(picks);
     UIManager.showToast(`${picks.length} long-term picks generated!`, 'success');
   } catch (e) {
-    UIManager.showToast(`Error: ${e.message}`, 'error');
-    UIManager.showError('longterm-list', e.message, _generateLongTermList);
+    UIManager.showError('longterm-list', `Error: ${e.message}`, _generateLongTermList);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Refresh Long-Term Analysis'; }
   }

@@ -3,7 +3,8 @@ import State from '../state.js';
 export class ExcelExporter {
   static async generate() {
     if (!window.XLSX) {
-      throw new Error('SheetJS not loaded. Check CDN.');
+      console.warn('SheetJS CDN unavailable, attempting fallback...');
+      throw new Error('SheetJS not available. Excel export unavailable at this time.');
     }
     const XLSX = window.XLSX;
     const wb = XLSX.utils.book_new();
@@ -45,7 +46,8 @@ export class ExcelExporter {
       s.isFno ? 'Y' : 'N', s.institutionalFlag ? 'Y' : 'N'
     ]));
     const ws2 = XLSX.utils.aoa_to_sheet(screenerRows);
-    ws2['!autofilter'] = { ref: `A1:Y${screenerRows.length}` };
+    const lastCol = String.fromCharCode(64 + screenerHeaders.length);
+    ws2['!autofilter'] = { ref: `A1:${lastCol}${screenerRows.length}` };
     XLSX.utils.book_append_sheet(wb, ws2, 'Nifty500_Screener');
 
     // Sheet 3: Top50_Ranked
@@ -60,7 +62,7 @@ export class ExcelExporter {
       s.rationale?.recommendationBasis || ''
     ]));
     const ws3 = XLSX.utils.aoa_to_sheet(top50Rows);
-    ws3['!autofilter'] = { ref: `A1:P51` };
+    ws3['!autofilter'] = { ref: `A1:P${top50Rows.length}` };
     XLSX.utils.book_append_sheet(wb, ws3, 'Top50_Ranked');
 
     // Sheet 4: LongTerm_Picks
