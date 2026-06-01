@@ -46,7 +46,14 @@ function _render() {
       if (stock?.rawPrices?.length) {
         const content = `<div id="wl-chart"></div>`;
         UIManager.showModal(stock.name, content);
-        setTimeout(() => ChartRenderer.renderPriceChart('wl-chart', stock), 50);
+        setTimeout(() => {
+          try {
+            ChartRenderer.renderPriceChart('wl-chart', stock);
+          } catch (e) {
+            const el = document.getElementById('wl-chart');
+            if (el) el.innerHTML = '<div class="text-center text-red-500 text-sm">Chart unavailable</div>';
+          }
+        }, 150);
       }
     });
   });

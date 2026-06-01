@@ -78,6 +78,9 @@
     transition: all 0.2s;
     box-shadow: 0 2px 8px rgba(99,102,241,0.3);
     touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
 
   .btn-primary:hover {
@@ -97,6 +100,9 @@
     border-radius: 0.75rem;
     transition: all 0.2s;
     touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
 
   .btn-secondary:hover {

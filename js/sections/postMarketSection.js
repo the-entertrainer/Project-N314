@@ -98,6 +98,8 @@ async function _generateAI() {
   const btn = document.getElementById('btn-generate-postmarket');
   if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
 
+  UIManager.showLoading('postmarket-log', 'Analyzing market data...');
+
   try {
     const stocks = [...State.stocks.values()].filter(s => s.returnDaily !== null);
     const sorted = [...stocks].sort((a, b) => b.returnDaily - a.returnDaily);
@@ -134,9 +136,10 @@ Provide a comprehensive post-market analysis with:
 
     const result = await GeminiFetcher.analyzeStructured(prompt, schema, apiKey);
     State.addPostMarketEntry({ ...result, source: 'AI', topGainer: gainers.split(',')[0], topLoser: losers.split(',')[0] });
+    _render();
     UIManager.showToast('Post-market analysis generated!', 'success');
   } catch (e) {
-    UIManager.showToast(`Error: ${e.message}`, 'error');
+    UIManager.showError('postmarket-log', `Error: ${e.message}`, _generateAI);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Generate AI Analysis'; }
   }
