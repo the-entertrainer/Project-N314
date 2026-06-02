@@ -1,77 +1,63 @@
-import React, { useState, useCallback } from 'react';
-import type { SentimentAnalysis } from './types';
-import { getSentimentAnalysis } from './services/geminiService';
-import StockInputForm from './components/StockInputForm';
-import SentimentResult from './components/SentimentResult';
-import LoadingSpinner from './components/LoadingSpinner';
+import React, { Suspense } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useMarketData } from './hooks/useMarketData';
+import { useAppStore } from './store/appStore';
+import Navigation from './components/Navigation';
+import DataStatusBar from './components/Common/DataStatusBar';
 
-const App: React.FC = () => {
-  const [stockSymbol] = useState('GOOGL');
-  const [exchange, setExchange] = useState('NASDAQ');
-  const [result, setResult] = useState<SentimentAnalysis | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const Dashboard      = React.lazy(() => import('./components/Dashboard'));
+const Screener       = React.lazy(() => import('./components/Screener'));
+const DeepDive       = React.lazy(() => import('./components/DeepDive'));
+const FnoIntelligence = React.lazy(() => import('./components/FnoIntelligence'));
+const NewsModule     = React.lazy(() => import('./components/NewsModule'));
+const AiAdvisor      = React.lazy(() => import('./components/AiAdvisor'));
 
-  const handleAnalysis = useCallback(async (symbol: string, selectedExchange: string) => {
-    if (!symbol.trim()) {
-      setError('Please enter a company name or stock symbol.');
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    setResult(null);
-    setExchange(selectedExchange);
-    try {
-      const data = await getSentimentAnalysis(symbol, selectedExchange);
-      setResult(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-64">
+    <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
+
+const TabContent: React.FC = () => {
+  const activeTab = useAppStore((s) => s.activeTab);
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4 sm:p-6 lg:p-8 font-sans">
-      <main className="w-full max-w-6xl mx-auto">
-        <div className="text-center p-6 bg-gray-800 rounded-lg shadow-xl mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-sky-400 mb-2">
-            AI Stock Sentiment Analyzer
-          </h1>
-          <p className="text-gray-300 text-lg">
-            Get real-time market sentiment, technical analysis, and news for any stock.
-          </p>
-        </div>
+    <Suspense fallback={<LoadingFallback />}>
+      {activeTab === 'dashboard' && <Dashboard />}
+      {activeTab === 'screener'  && <Screener />}
+      {activeTab === 'deepdive'  && <DeepDive />}
+      {activeTab === 'fno'       && <FnoIntelligence />}
+      {activeTab === 'news'      && <NewsModule />}
+      {activeTab === 'advisor'   && <AiAdvisor />}
+    </Suspense>
+  );
+};
 
-        <StockInputForm
-          initialSymbol={stockSymbol}
-          selectedExchange={exchange}
-          onExchangeChange={setExchange}
-          onSubmit={handleAnalysis}
-          isLoading={isLoading}
-        />
-
-        {error && (
-          <div className="mt-8 p-4 bg-red-900/50 border border-red-500 text-red-300 rounded-lg text-center shadow-lg">
-            <p className="font-semibold">An error occurred:</p>
-            <p>{error}</p>
-          </div>
-        )}
-
-        {isLoading && <LoadingSpinner />}
-
-        {result && !isLoading && (
-          <div className="mt-8 animate-fade-in">
-            <SentimentResult result={result} />
-          </div>
-        )}
+const AppInner: React.FC = () => {
+  useMarketData();
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-surface-900, #070b14)' }}>
+      <Navigation />
+      <DataStatusBar />
+      <main className="flex-1 overflow-auto">
+        <TabContent />
       </main>
-
-      <footer className="w-full max-w-4xl mx-auto mt-12 text-center text-gray-500 text-sm">
-        <p>Disclaimer: This analysis is AI-generated and for informational purposes only. It is not financial advice.</p>
-      </footer>
     </div>
   );
 };
+
+const App: React.FC = () => (
+  <QueryClientProvider client={queryClient}>
+    <AppInner />
+  </QueryClientProvider>
+);
 
 export default App;
