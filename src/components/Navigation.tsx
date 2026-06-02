@@ -55,7 +55,7 @@ const Navigation: React.FC = () => {
   return (
     <nav className="sticky top-0 z-30 flex items-center gap-1 px-4 py-2 glass border-b border-white/8">
       <span className="mr-4 text-sm font-bold gradient-text tracking-widest uppercase select-none">
-        NiftyIntel
+        Nifty Intel
       </span>
       {TABS.map((tab) => {
         const active = activeTab === tab.id;
