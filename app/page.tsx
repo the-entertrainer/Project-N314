@@ -1,52 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
 
 export default function N314() {
   const [activeTab, setActiveTab] = useState<'overview' | 'screener' | 'ai'>('overview');
+  const [marketData, setMarketData] = useState<any[]>([]);
+  const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // AI Chat State
-  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([
-    { role: 'assistant', content: 'Hello! I\'m your N314 AI Advisor. Ask me anything about Indian stocks, market trends, or specific companies.' }
-  ]);
-  const [input, setInput] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
-
-  const sendMessage = async () => {
-    if (!input.trim()) return;
-
-    const userMessage = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setAiLoading(true);
-
+  // Fetch live indices
+  const fetchMarketData = async () => {
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: input }),
-      });
+      const res = await fetch('/api/market?type=indices');
+      const json = await res.json();
+      if (json.success) setMarketData(json.data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
-      const data = await res.json();
-
-      if (data.success) {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
-      } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.error || 'Sorry, something went wrong.' }]);
-      }
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Failed to connect to AI. Please try again.' }]);
+  // Fetch historical data for NIFTY
+  const fetchHistorical = async () => {
+    try {
+      const res = await fetch('/api/market?type=historical&symbol=^NSEI');
+      const json = await res.json();
+      if (json.success) setHistoricalData(json.data || []);
+    } catch (e) {
+      console.error(e);
     } finally {
-      setAiLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
+  useEffect(() => {
+    fetchMarketData();
+    fetchHistorical();
+    const interval = setInterval(fetchMarketData, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -73,63 +65,70 @@ export default function N314() {
 
       <main className="max-w-7xl mx-auto px-6 py-10">
         {activeTab === 'overview' && (
-          <div>
+          <>
             <h2 className="text-5xl font-semibold tracking-tight mb-8">Market Overview</h2>
-            <div className="text-center py-12 text-zinc-400">Live market data is available. Switch to Screener or AI for more features.</div>
-          </div>
-        )}
 
-        {activeTab === 'screener' && (
-          <div>
-            <h2 className="text-4xl font-semibold tracking-tight mb-6">Stock Screener</h2>
-            <div className="text-center py-12 text-zinc-400">TanStack Table is ready. Add more filters in future updates.</div>
-          </div>
-        )}
-
-        {activeTab === 'ai' && (
-          <div className="max-w-3xl mx-auto">
-            <h2 className="text-4xl font-semibold tracking-tight mb-2">AI Stock Advisor</h2>
-            <p className="text-zinc-400 mb-6">Powered by Google Gemini • Ask about any NSE stock or market trend</p>
-
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl h-[500px] flex flex-col">
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {messages.map((msg, index) => (
-                  <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] px-4 py-3 rounded-2xl ${msg.role === 'user' ? 'bg-emerald-600' : 'bg-zinc-800'}`}>
-                      {msg.content}
+            {/* Live Index Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+              {marketData.length > 0 ? marketData.map((quote, i) => {
+                const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
+                return (
+                  <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+                    <div className="text-sm text-zinc-500">{quote.symbol.replace('^', '')}</div>
+                    <div className="text-4xl font-mono mt-3">{quote.regularMarketPrice?.toLocaleString('en-IN')}</div>
+                    <div className={`mt-2 text-lg font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {isPositive ? '+' : ''}{quote.regularMarketChangePercent?.toFixed(2)}%
                     </div>
                   </div>
-                ))}
-                {aiLoading && <div className="text-zinc-400">Thinking...</div>}
-              </div>
-
-              {/* Input */}
-              <div className="p-4 border-t border-zinc-800 flex gap-3">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask about Reliance, market outlook, or any stock..."
-                  className="flex-1 bg-zinc-950 border border-zinc-700 rounded-2xl px-5 py-3 focus:outline-none focus:border-emerald-500"
-                  disabled={aiLoading}
-                />
-                <button
-                  onClick={sendMessage}
-                  disabled={aiLoading || !input.trim()}
-                  className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 px-8 rounded-2xl font-medium transition-colors"
-                >
-                  Send
-                </button>
-              </div>
+                );
+              }) : <div className="col-span-3 text-center py-8 text-zinc-400">Loading live data...</div>}
             </div>
 
-            <p className="text-xs text-center text-zinc-500 mt-4">
-              Note: Add your Gemini API key in Vercel Environment Variables as GEMINI_API_KEY to enable this feature.
-            </p>
-          </div>
+            {/* Charts Section */}
+            <div className="mb-12">
+              <h3 className="text-2xl font-semibold mb-6">NIFTY 50 - 30 Day Trend</h3>
+              
+              {historicalData.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Price Line Chart */}
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+                    <div className="text-sm text-zinc-400 mb-4">Closing Price</div>
+                    <ResponsiveContainer width="100%" height={280}>
+                      <LineChart data={historicalData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                        <XAxis dataKey="date" stroke="#52525b" />
+                        <YAxis stroke="#52525b" domain={['auto', 'auto']} />
+                        <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none' }} />
+                        <Line type="monotone" dataKey="close" stroke="#10b981" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Volume Bar Chart */}
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+                    <div className="text-sm text-zinc-400 mb-4">Volume</div>
+                    <ResponsiveContainer width="100%" height={280}>
+                      <BarChart data={historicalData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                        <XAxis dataKey="date" stroke="#52525b" />
+                        <YAxis stroke="#52525b" />
+                        <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none' }} />
+                        <Bar dataKey="volume" fill="#3b82f6" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center text-zinc-400">
+                  Loading chart data...
+                </div>
+              )}
+            </div>
+          </>
         )}
+
+        {activeTab === 'screener' && <div className="text-center py-20 text-zinc-400">Screener coming soon</div>}
+        {activeTab === 'ai' && <div className="text-center py-20 text-zinc-400">AI Advisor (add GEMINI_API_KEY in Vercel)</div>}
       </main>
     </div>
   );
