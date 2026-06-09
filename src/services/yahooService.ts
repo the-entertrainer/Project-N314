@@ -3,11 +3,12 @@ import type { StockQuote, HistoricalBar } from '../types';
 const PROXIES = [
   (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
   (url: string) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
   (url: string) => `https://cors-anywhere.herokuapp.com/${url}`,
 ];
 
 const CHUNK_SIZE = 50;
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 10000;
 
 async function fetchWithProxy(url: string): Promise<any> {
   for (const proxy of PROXIES) {
