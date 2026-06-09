@@ -6,7 +6,9 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
-    base: '/Project-N314/',
+    // VITE_BASE_PATH is set to '/Project-N314/' in the GitHub Pages workflow.
+    // Vercel leaves it unset → defaults to '/' (root).
+    base: env.VITE_BASE_PATH || '/',
     server: { port: 3000, host: '0.0.0.0' },
     plugins: [react(), tailwindcss()],
     define: {
