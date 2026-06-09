@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { TrendingUp, BarChart3, Brain } from 'lucide-react';
 
 export default function N314() {
   const [activeTab, setActiveTab] = useState<'overview' | 'screener' | 'ai'>('overview');
