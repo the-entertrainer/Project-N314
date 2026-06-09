@@ -1,132 +1,100 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { TrendingUp, BarChart3, Brain, User, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { BarChart3, TrendingUp, Users } from 'lucide-react';
 
-type MarketData = {
-  symbol: string;
-  regularMarketPrice?: number;
-  regularMarketChange?: number;
-  regularMarketChangePercent?: number;
-  shortName?: string;
-};
-
-export default function N314() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'screener' | 'ai'>('overview');
-  const [marketData, setMarketData] = useState<MarketData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-
-  const fetchMarketData = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/market?type=indices');
-      const { data } = await res.json();
-      setMarketData(data || []);
-      setLastUpdated(new Date());
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchMarketData();
-    const interval = setInterval(fetchMarketData, 60000); // Refresh every minute
-    return () => clearInterval(interval);
-  }, []);
-
-  const formatChange = (change?: number, percent?: number) => {
-    if (!change || !percent) return '0.00';
-    const sign = change >= 0 ? '+' : '';
-    return `${sign}${change.toFixed(2)} (${sign}${percent.toFixed(2)}%)`;
-  };
+export default function Home() {
+  const [activeTab, setActiveTab] = useState<'overview' | 'screener' | 'insights'>('overview');
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-900/95 backdrop-blur sticky top-0 z-50">
+      <header className="border-b border-zinc-800 bg-zinc-900/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-emerald-500 rounded-2xl flex items-center justify-center font-bold text-xl text-black">N</div>
+            <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
+              <span className="text-black font-bold text-xl">N</span>
+            </div>
             <div>
-              <h1 className="text-3xl font-semibold tracking-tighter">N314</h1>
-              <p className="text-[10px] text-zinc-500 -mt-1">INTELLIGENCE PLATFORM</p>
+              <div className="font-semibold text-2xl tracking-tight">N314</div>
+              <div className="text-xs text-zinc-500 -mt-1">STOCK INTEL</div>
             </div>
           </div>
-
-          <nav className="hidden md:flex gap-2 text-sm font-medium">
+          
+          <nav className="flex gap-8 text-sm">
             <button 
-              onClick={() => setActiveTab('overview')} 
-              className={`px-6 py-2.5 rounded-2xl flex items-center gap-2 transition-all ${activeTab === 'overview' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}
+              onClick={() => setActiveTab('overview')}
+              className={`pb-1 transition-colors ${activeTab === 'overview' ? 'border-b-2 border-emerald-500 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
             >
-              <TrendingUp size={18} /> Overview
+              Overview
             </button>
             <button 
-              onClick={() => setActiveTab('screener')} 
-              className={`px-6 py-2.5 rounded-2xl flex items-center gap-2 transition-all ${activeTab === 'screener' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}
+              onClick={() => setActiveTab('screener')}
+              className={`pb-1 transition-colors ${activeTab === 'screener' ? 'border-b-2 border-emerald-500 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
             >
-              <BarChart3 size={18} /> Screener
+              Screener
             </button>
             <button 
-              onClick={() => setActiveTab('ai')} 
-              className={`px-6 py-2.5 rounded-2xl flex items-center gap-2 transition-all ${activeTab === 'ai' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}
+              onClick={() => setActiveTab('insights')}
+              className={`pb-1 transition-colors ${activeTab === 'insights' ? 'border-b-2 border-emerald-500 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
             >
-              <Brain size={18} /> AI Insights
+              AI Insights
             </button>
           </nav>
 
-          <div className="flex items-center gap-4">
-            <button onClick={fetchMarketData} disabled={loading} className="p-2 hover:bg-zinc-800 rounded-xl">
-              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-            </button>
-            <div className="text-xs px-4 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">LIVE NSE</div>
+          <div className="flex items-center gap-3 text-sm">
+            <div className="px-3 py-1.5 bg-zinc-800 rounded-full flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              MARKET OPEN
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-10">
+      <main className="max-w-7xl mx-auto px-6 py-8">
         {activeTab === 'overview' && (
-          <>
-            <div className="flex justify-between items-end mb-10">
-              <div>
-                <h2 className="text-5xl font-semibold tracking-tight">Market Overview</h2>
-                <p className="text-zinc-500 mt-2">Real-time Indian market intelligence • Last updated: {lastUpdated.toLocaleTimeString()}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {marketData.length > 0 ? marketData.map((item, index) => (
-                <div key={index} className="bg-zinc-900 border border-zinc-800/80 rounded-3xl p-8 hover:border-emerald-500/30 transition-all group">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-mono text-sm text-zinc-500 tracking-widest">{item.symbol.replace('^', '')}</div>
-                      <div className="text-4xl font-semibold mt-3 font-mono">{item.regularMarketPrice?.toFixed(2) || '—'}</div>
-                    </div>
-                    <div className={`text-sm px-3 py-1 rounded-full ${ (item.regularMarketChangePercent || 0) >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400' }`}>
-                      {(item.regularMarketChangePercent || 0) >= 0 ? '▲' : '▼'}
-                    </div>
+          <div>
+            <h1 className="text-4xl font-semibold mb-2">Market Overview</h1>
+            <p className="text-zinc-400 mb-8">Real-time NSE data and insights</p>
+            
+            {/* Placeholder for Step 1 data */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+              <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-sm text-zinc-400">NIFTY 50</div>
+                    <div className="text-3xl font-mono mt-2">24,xxx</div>
                   </div>
-                  <div className={`mt-6 text-lg font-medium ${ (item.regularMarketChangePercent || 0) >= 0 ? 'text-emerald-400' : 'text-red-400' }`}>
-                    {formatChange(item.regularMarketChange, item.regularMarketChangePercent)}
-                  </div>
-                  <div className="text-xs text-zinc-500 mt-1">{item.shortName}</div>
+                  <TrendingUp className="w-8 h-8 text-emerald-500" />
                 </div>
-              )) : (
-                <div className="col-span-full text-center py-20 text-zinc-500">Loading live market data...</div>
-              )}
+                <div className="text-emerald-500 mt-4 text-sm">+1.2% today</div>
+              </div>
+              {/* Similar cards for others */}
             </div>
-
-            <div className="mt-16">
-              <h3 className="text-xl font-semibold mb-6 flex items-center gap-3">Popular Stocks <span className="text-xs px-2 py-0.5 bg-zinc-800 rounded">via Yahoo Finance</span></h3>
-              {/* Can extend later */}
+            
+            <div className="text-center text-zinc-500 py-12">
+              Step 1 data fetching will go here (Yahoo Finance)
             </div>
-          </>
+          </div>
         )}
-
-        {activeTab === 'screener' && <div className="p-12 text-center text-zinc-400">Step 2: TanStack Table Screener coming next</div>}
-        {activeTab === 'ai' && <div className="p-12 text-center text-zinc-400">Step 3: Gemini-powered AI Advisor</div>}
+        
+        {activeTab === 'screener' && (
+          <div>
+            <h1 className="text-4xl font-semibold mb-8">Stock Screener</h1>
+            <div className="bg-zinc-900 rounded-2xl p-8 text-center text-zinc-400">
+              TanStack Table coming in Step 2
+            </div>
+          </div>
+        )}
+        
+        {activeTab === 'insights' && (
+          <div>
+            <h1 className="text-4xl font-semibold mb-8">AI Insights</h1>
+            <div className="bg-zinc-900 rounded-2xl p-8 text-center text-zinc-400">
+              Gemini integration in later step
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
