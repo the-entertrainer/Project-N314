@@ -1,91 +1,52 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  flexRender,
-  createColumnHelper,
-  SortingState,
-} from '@tanstack/react-table';
-import type { MarketQuote } from '../types/market';
-
-const columnHelper = createColumnHelper<MarketQuote>();
+import { useState } from 'react';
 
 export default function N314() {
   const [activeTab, setActiveTab] = useState<'overview' | 'screener' | 'ai'>('overview');
-  const [marketData, setMarketData] = useState<MarketQuote[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [globalFilter, setGlobalFilter] = useState('');
-  const [sorting, setSorting] = useState<SortingState>([]);
 
-  const fetchMarketData = async (type: string = 'indices') => {
+  // AI Chat State
+  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([
+    { role: 'assistant', content: 'Hello! I\'m your N314 AI Advisor. Ask me anything about Indian stocks, market trends, or specific companies.' }
+  ]);
+  const [input, setInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+
+    const userMessage = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setAiLoading(true);
+
     try {
-      const res = await fetch(`/api/market?type=${type}`);
-      const json = await res.json();
-      if (json.success && json.data) {
-        setMarketData(json.data);
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: input }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.error || 'Sorry, something went wrong.' }]);
       }
     } catch (error) {
-      console.error(error);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Failed to connect to AI. Please try again.' }]);
     } finally {
-      setLoading(false);
+      setAiLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (activeTab === 'overview') fetchMarketData('indices');
-    if (activeTab === 'screener') fetchMarketData('popular');
-  }, [activeTab]);
-
-  // Columns for Screener
-  const columns = useMemo(
-    () => [
-      columnHelper.accessor('symbol', {
-        header: 'Symbol',
-        cell: (info) => <span className="font-mono font-semibold">{info.getValue()}</span>,
-      }),
-      columnHelper.accessor('shortName', {
-        header: 'Name',
-        cell: (info) => info.getValue() || '—',
-      }),
-      columnHelper.accessor('regularMarketPrice', {
-        header: 'Price',
-        cell: (info) => info.getValue()?.toLocaleString('en-IN') || '—',
-      }),
-      columnHelper.accessor('regularMarketChangePercent', {
-        header: 'Change %',
-        cell: (info) => {
-          const val = info.getValue();
-          if (val === undefined) return '—';
-          const isPositive = val >= 0;
-          return (
-            <span className={isPositive ? 'text-emerald-400' : 'text-red-400'}>
-              {isPositive ? '+' : ''}{val.toFixed(2)}%
-            </span>
-          );
-        },
-      }),
-      columnHelper.accessor('regularMarketVolume', {
-        header: 'Volume',
-        cell: (info) => (info.getValue() ? (info.getValue()! / 1_000_000).toFixed(1) + 'M' : '—'),
-      }),
-    ],
-    []
-  );
-
-  const table = useReactTable({
-    data: marketData,
-    columns,
-    state: { globalFilter, sorting },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-  });
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -114,78 +75,61 @@ export default function N314() {
         {activeTab === 'overview' && (
           <div>
             <h2 className="text-5xl font-semibold tracking-tight mb-8">Market Overview</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {marketData.length > 0 ? marketData.map((quote, i) => {
-                const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
-                return (
-                  <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-                    <div className="text-sm text-zinc-500">{quote.symbol.replace('^', '')}</div>
-                    <div className="text-4xl font-mono mt-3">{quote.regularMarketPrice?.toLocaleString('en-IN')}</div>
-                    <div className={`mt-2 text-lg ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {(quote.regularMarketChangePercent || 0) >= 0 ? '+' : ''}{quote.regularMarketChangePercent?.toFixed(2)}%
-                    </div>
-                  </div>
-                );
-              }) : <div className="col-span-4 text-center py-12 text-zinc-400">Loading...</div>}
-            </div>
+            <div className="text-center py-12 text-zinc-400">Live market data is available. Switch to Screener or AI for more features.</div>
           </div>
         )}
 
         {activeTab === 'screener' && (
           <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-4xl font-semibold tracking-tight">Stock Screener</h2>
-              <input
-                type="text"
-                placeholder="Search stocks..."
-                value={globalFilter}
-                onChange={(e) => setGlobalFilter(e.target.value)}
-                className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2 w-80 focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-
-            {loading ? (
-              <div className="text-center py-20 text-zinc-400">Loading stocks...</div>
-            ) : (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-zinc-950 border-b border-zinc-800">
-                    {table.getHeaderGroups().map(headerGroup => (
-                      <tr key={headerGroup.id}>
-                        {headerGroup.headers.map(header => (
-                          <th
-                            key={header.id}
-                            className="px-6 py-4 text-left text-sm font-medium text-zinc-400 cursor-pointer select-none"
-                            onClick={header.column.getToggleSortingHandler()}
-                          >
-                            {flexRender(header.column.columnDef.header, header.getContext())}
-                            {{
-                              asc: ' ↑',
-                              desc: ' ↓',
-                            }[header.column.getIsSorted() as string] ?? null}
-                          </th>
-                        ))}
-                      </tr>
-                    ))}
-                  </thead>
-                  <tbody>
-                    {table.getRowModel().rows.map(row => (
-                      <tr key={row.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
-                        {row.getVisibleCells().map(cell => (
-                          <td key={cell.id} className="px-6 py-4 text-sm">
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <h2 className="text-4xl font-semibold tracking-tight mb-6">Stock Screener</h2>
+            <div className="text-center py-12 text-zinc-400">TanStack Table is ready. Add more filters in future updates.</div>
           </div>
         )}
 
-        {activeTab === 'ai' && <div className="text-center py-20 text-zinc-400">Gemini AI coming in next step</div>}
+        {activeTab === 'ai' && (
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-4xl font-semibold tracking-tight mb-2">AI Stock Advisor</h2>
+            <p className="text-zinc-400 mb-6">Powered by Google Gemini • Ask about any NSE stock or market trend</p>
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl h-[500px] flex flex-col">
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {messages.map((msg, index) => (
+                  <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] px-4 py-3 rounded-2xl ${msg.role === 'user' ? 'bg-emerald-600' : 'bg-zinc-800'}`}>
+                      {msg.content}
+                    </div>
+                  </div>
+                ))}
+                {aiLoading && <div className="text-zinc-400">Thinking...</div>}
+              </div>
+
+              {/* Input */}
+              <div className="p-4 border-t border-zinc-800 flex gap-3">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask about Reliance, market outlook, or any stock..."
+                  className="flex-1 bg-zinc-950 border border-zinc-700 rounded-2xl px-5 py-3 focus:outline-none focus:border-emerald-500"
+                  disabled={aiLoading}
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={aiLoading || !input.trim()}
+                  className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 px-8 rounded-2xl font-medium transition-colors"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+
+            <p className="text-xs text-center text-zinc-500 mt-4">
+              Note: Add your Gemini API key in Vercel Environment Variables as GEMINI_API_KEY to enable this feature.
+            </p>
+          </div>
+        )}
       </main>
     </div>
   );
