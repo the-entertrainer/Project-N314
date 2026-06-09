@@ -3,13 +3,12 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
 
-import type { MarketQuote } from '../types/market';
+import type { MarketQuote, HistoricalDataPoint } from '../types/market';
 
 export default function N314() {
   const [activeTab, setActiveTab] = useState<'overview' | 'screener' | 'ai'>('overview');
   const [marketData, setMarketData] = useState<MarketQuote[]>([]);
-  const [historicalData, setHistoricalData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
 
   const fetchMarketData = async () => {
     try {
@@ -28,8 +27,6 @@ export default function N314() {
       if (json.success) setHistoricalData(json.data || []);
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoading(false);
     }
   };
 

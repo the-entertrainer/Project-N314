@@ -9,8 +9,17 @@ export interface MarketQuote {
   exchange?: string;
 }
 
+export interface HistoricalDataPoint {
+  date: string;
+  open?: number;
+  high?: number;
+  low?: number;
+  close?: number;
+  volume?: number;
+}
+
 export interface MarketResponse {
   success: boolean;
-  data?: MarketQuote[];
+  data?: MarketQuote[] | HistoricalDataPoint[];
   error?: string;
 }
