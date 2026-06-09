@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
 
+import type { MarketQuote } from '../types/market';
+
 export default function N314() {
   const [activeTab, setActiveTab] = useState<'overview' | 'screener' | 'ai'>('overview');
-  const [marketData, setMarketData] = useState<any[]>([]);
+  const [marketData, setMarketData] = useState<MarketQuote[]>([]);
   const [historicalData, setHistoricalData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch live indices
   const fetchMarketData = async () => {
     try {
       const res = await fetch('/api/market?type=indices');
@@ -20,7 +21,6 @@ export default function N314() {
     }
   };
 
-  // Fetch historical data for NIFTY
   const fetchHistorical = async () => {
     try {
       const res = await fetch('/api/market?type=historical&symbol=^NSEI');
@@ -68,7 +68,6 @@ export default function N314() {
           <>
             <h2 className="text-5xl font-semibold tracking-tight mb-8">Market Overview</h2>
 
-            {/* Live Index Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
               {marketData.length > 0 ? marketData.map((quote, i) => {
                 const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
@@ -84,13 +83,10 @@ export default function N314() {
               }) : <div className="col-span-3 text-center py-8 text-zinc-400">Loading live data...</div>}
             </div>
 
-            {/* Charts Section */}
             <div className="mb-12">
               <h3 className="text-2xl font-semibold mb-6">NIFTY 50 - 30 Day Trend</h3>
-              
               {historicalData.length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Price Line Chart */}
                   <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
                     <div className="text-sm text-zinc-400 mb-4">Closing Price</div>
                     <ResponsiveContainer width="100%" height={280}>
@@ -104,7 +100,6 @@ export default function N314() {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Volume Bar Chart */}
                   <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
                     <div className="text-sm text-zinc-400 mb-4">Volume</div>
                     <ResponsiveContainer width="100%" height={280}>

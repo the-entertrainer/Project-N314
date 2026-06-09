@@ -39,10 +39,11 @@ export async function POST(request: NextRequest) {
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
 
     return NextResponse.json({ success: true, response: text });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Gemini API error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to get AI response' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
