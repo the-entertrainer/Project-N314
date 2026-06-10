@@ -41,10 +41,10 @@ export async function groqEquityDeep(dataPayload: string) {
   );
 }
 
-export async function groqIpoHub(headlinesPayload: string) {
+export async function groqIpoHub(dataPayload: string) {
   return callGroqPower(
-    `${PLAIN} IPO advisor for Indian markets. JSON:{"plain_summary":"overview of current IPO climate in plain language","market_context":"2-3 sentences on listing appetite and sector mood","logic_steps":["how you evaluated the IPO list"],"ipos":[{"name":"realistic Indian company or sector IPO name from headlines","status":"upcoming|recent","pros":["plain strength"],"cons":["plain risk"],"action":"Apply for Short-Term Listing Gains|Accumulate for Long-Term Value|Avoid Completely","rationale":"concise plain-language why this action fits budget and category","summary":"1-2 sentence plain overview"}]}. Generate 5-6 DISTINCT IPO profiles. Each action must be one of the three exact strings. Max 4 pros/cons each.`,
-    headlinesPayload,
-    1100
+    `${PLAIN} IPO advisor for Indian markets. You receive IPO_DATA with REAL NSE numbers — do NOT invent companies or figures. JSON:{"plain_summary":"4-5 sentences on IPO climate using only provided numbers","market_context":"2-3 sentences citing subscription/listing stats from IPO_DATA","indicator_explanation":"explain what subscription_x, listing_gain_pct, and price band mean in plain terms","logic_steps":["how you used the real numbers"],"ipos":[{"symbol":"must match IPO_DATA symbol","pros":["each pro must cite a specific number e.g. subscription 12x"],"cons":["each con must cite a specific number or fact"],"action":"Apply for Short-Term Listing Gains|Accumulate for Long-Term Value|Avoid Completely","rationale":"must reference at least 2 numbers from IPO_DATA and user budget/category","summary":"1-2 sentences with key figures"}]}. Return one entry per IPO in IPO_DATA. Each action must be one of the three exact strings. Max 4 pros/cons each.`,
+    dataPayload,
+    1200
   );
 }

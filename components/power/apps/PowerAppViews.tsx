@@ -322,23 +322,122 @@ export function IpoHubApp() {
         <div className="space-y-4">
           <AiInsightPanel plainSummary={data.plain_summary} indicatorExplanation={data.indicator_explanation} logicSteps={data.logic_steps}>
             <p className="text-xs text-zinc-500">{data.market_context}</p>
+            {data.data_sources && (
+              <p className="text-[10px] text-zinc-600 mt-2">
+                Data: {data.data_sources.join(' · ')}
+              </p>
+            )}
           </AiInsightPanel>
-          {data.ipos.map((ipo, i) => (
-            <div key={i} className="glass-card p-4 space-y-2">
+          {data.ipos.map((ipo) => (
+            <div key={ipo.symbol} className="glass-card p-4 space-y-3">
               <div className="flex justify-between items-start gap-2">
-                <div className="font-medium text-sm">{ipo.name}</div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${
-                  ipo.action === 'Accumulate for Long-Term Value' ? 'bg-emerald-500/15 text-emerald-400' :
-                  ipo.action === 'Apply for Short-Term Listing Gains' ? 'bg-amber-500/15 text-amber-400' :
-                  'bg-red-500/15 text-red-400'
-                }`}>{ipo.action}</span>
+                <div className="min-w-0">
+                  <div className="font-medium text-sm truncate">{ipo.name}</div>
+                  <div className="text-[10px] text-zinc-500 font-mono">{ipo.symbol} · {ipo.security_type}</div>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                    ipo.sentiment === 'Bullish' ? 'bg-emerald-500/15 text-emerald-400' :
+                    ipo.sentiment === 'Bearish' ? 'bg-red-500/15 text-red-400' :
+                    'bg-zinc-500/15 text-zinc-400'
+                  }`}>{ipo.sentiment}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                    ipo.action === 'Accumulate for Long-Term Value' ? 'bg-emerald-500/15 text-emerald-400' :
+                    ipo.action === 'Apply for Short-Term Listing Gains' ? 'bg-amber-500/15 text-amber-400' :
+                    'bg-red-500/15 text-red-400'
+                  }`}>{ipo.action}</span>
+                </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                {ipo.numbers.issue_price != null && (
+                  <div className="bg-zinc-900/50 rounded-lg px-2.5 py-2">
+                    <div className="text-zinc-500">Issue price</div>
+                    <div className="font-mono text-zinc-200">₹{ipo.numbers.issue_price}</div>
+                  </div>
+                )}
+                {ipo.numbers.price_range_low != null && ipo.numbers.price_range_high != null && (
+                  <div className="bg-zinc-900/50 rounded-lg px-2.5 py-2">
+                    <div className="text-zinc-500">Price band</div>
+                    <div className="font-mono text-zinc-200">₹{ipo.numbers.price_range_low}–{ipo.numbers.price_range_high}</div>
+                  </div>
+                )}
+                {ipo.numbers.subscription_times != null && (
+                  <div className="bg-zinc-900/50 rounded-lg px-2.5 py-2">
+                    <div className="text-zinc-500">Subscription</div>
+                    <div className="font-mono text-emerald-400">{ipo.numbers.subscription_times}x</div>
+                  </div>
+                )}
+                {ipo.numbers.listing_gain_pct != null && (
+                  <div className="bg-zinc-900/50 rounded-lg px-2.5 py-2">
+                    <div className="text-zinc-500">Listing gain</div>
+                    <div className={`font-mono ${ipo.numbers.listing_gain_pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {ipo.numbers.listing_gain_pct >= 0 ? '+' : ''}{ipo.numbers.listing_gain_pct}%
+                    </div>
+                  </div>
+                )}
+                {ipo.numbers.current_price != null && (
+                  <div className="bg-zinc-900/50 rounded-lg px-2.5 py-2">
+                    <div className="text-zinc-500">Current price</div>
+                    <div className="font-mono text-zinc-200">₹{ipo.numbers.current_price}</div>
+                  </div>
+                )}
+                {ipo.numbers.shares_offered != null && (
+                  <div className="bg-zinc-900/50 rounded-lg px-2.5 py-2">
+                    <div className="text-zinc-500">Shares offered</div>
+                    <div className="font-mono text-zinc-200">{ipo.numbers.shares_offered.toLocaleString('en-IN')}</div>
+                  </div>
+                )}
+              </div>
+
+              {ipo.sentiment_backing.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Why this sentiment</div>
+                  {ipo.sentiment_backing.map((b, j) => (
+                    <div key={j} className="text-[10px] text-zinc-400 flex gap-2">
+                      <span className="font-mono text-emerald-400/80 shrink-0">{b.value}</span>
+                      <span>{b.metric}: {b.implication}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {ipo.facts.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Verified facts</div>
+                  {ipo.facts.map((f, j) => (
+                    <div key={j} className="text-[10px] flex justify-between gap-2">
+                      <span className="text-zinc-400">{f.label}: <span className="text-zinc-200">{f.value}</span></span>
+                      <span className="text-zinc-600 shrink-0">{f.source}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <p className="text-xs text-zinc-400">{ipo.summary}</p>
               <p className="text-xs text-zinc-300">{ipo.rationale}</p>
+
               <div className="grid grid-cols-2 gap-2 text-[10px]">
                 <div><span className="text-emerald-500">Pros</span>{ipo.pros.map((p, j) => <div key={j} className="text-zinc-500">+ {p}</div>)}</div>
                 <div><span className="text-red-400">Cons</span>{ipo.cons.map((c, j) => <div key={j} className="text-zinc-500">− {c}</div>)}</div>
               </div>
+
+              {ipo.sources.length > 0 && (
+                <div className="space-y-1 pt-1 border-t border-white/5">
+                  <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Sources</div>
+                  {ipo.sources.map((s, j) => (
+                    <div key={j} className="text-[10px]">
+                      {s.url ? (
+                        <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-emerald-400/80 hover:text-emerald-400 underline underline-offset-2 break-all">
+                          {s.publisher}: {s.title}
+                        </a>
+                      ) : (
+                        <span className="text-zinc-500">{s.publisher}: {s.title}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

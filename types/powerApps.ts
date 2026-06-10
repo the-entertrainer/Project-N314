@@ -74,9 +74,48 @@ export type IpoAction =
   | 'Accumulate for Long-Term Value'
   | 'Avoid Completely';
 
+export interface IpoKeyNumbers {
+  issue_price: number | null;
+  price_range_low: number | null;
+  price_range_high: number | null;
+  shares_offered: number | null;
+  subscription_times: number | null;
+  current_price: number | null;
+  listing_gain_pct: number | null;
+  issue_start: string | null;
+  issue_end: string | null;
+  listing_date: string | null;
+}
+
+export interface IpoFactItem {
+  label: string;
+  value: string;
+  source: string;
+}
+
+export interface IpoSourceLink {
+  title: string;
+  url: string;
+  publisher: string;
+  date: string;
+}
+
+export interface IpoSentimentBacking {
+  metric: string;
+  value: string;
+  implication: string;
+}
+
 export interface IpoItem {
+  symbol: string;
   name: string;
-  status: 'upcoming' | 'recent';
+  status: 'upcoming' | 'recent' | 'active';
+  security_type: string;
+  sentiment: 'Bullish' | 'Bearish' | 'Neutral';
+  numbers: IpoKeyNumbers;
+  facts: IpoFactItem[];
+  sources: IpoSourceLink[];
+  sentiment_backing: IpoSentimentBacking[];
   pros: string[];
   cons: string[];
   action: IpoAction;
@@ -90,4 +129,5 @@ export interface IpoResult extends AiBreakdown {
   filter: string;
   category: string;
   budget: string;
+  data_sources?: string[];
 }

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchIpoHeadlines } from '../../../../lib/powerData';
+import { fetchIpoFactRecords, buildIpoGroqPayload } from '../../../../lib/ipoFacts';
+import { mergeIpoAnalysis } from '../../../../lib/ipoAnalysis';
 import { groqIpoHub } from '../../../../lib/powerGroq';
 import { GroqRateLimitError } from '../../../../lib/groq';
-import { parseAiBreakdown, parseIpoAction, parseStringArray } from '../../../../lib/powerValidate';
+import { parseAiBreakdown } from '../../../../lib/powerValidate';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,38 +12,51 @@ export async function POST(request: NextRequest) {
     const category = body.category === 'hni' ? 'hni' : 'retail';
     const budget = String(body.budget || '200000');
 
-    const headlines = await fetchIpoHeadlines(filter);
-    const payload =
-      (headlines.length > 0
-        ? headlines.map((h) => `${h.date}|${h.title}`).join('\n')
-        : `${new Date().toISOString().slice(0, 10)}|India IPO market`) +
-      `\nfilter:${filter}|category:${category}|budget:₹${budget}`;
+    const records = await fetchIpoFactRecords(filter);
 
-    const raw = await groqIpoHub(payload);
-    const ai = JSON.parse(raw) as Record<string, unknown>;
-    const breakdown = parseAiBreakdown(ai);
+    if (records.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'No IPO records available from NSE right now. Try again shortly.',
+      }, { status: 503 });
+    }
 
-    const ipos = Array.isArray(ai.ipos)
-      ? ai.ipos.slice(0, 6).map((item: Record<string, unknown>) => ({
-          name: String(item.name || '').slice(0, 80),
-          status: item.status === 'recent' ? 'recent' : 'upcoming',
-          pros: parseStringArray(item.pros, 4),
-          cons: parseStringArray(item.cons, 4),
-          action: parseIpoAction(String(item.action || '')),
-          rationale: String(item.rationale || '').slice(0, 300),
-          summary: String(item.summary || '').slice(0, 250),
-        }))
-      : [];
+    const payload = buildIpoGroqPayload(records, filter, category, budget);
+
+    let breakdown = {
+      plain_summary: '',
+      logic_steps: [] as string[],
+      indicator_explanation: '',
+    };
+    let aiIpos: Record<string, unknown>[] | undefined;
+
+    try {
+      const raw = await groqIpoHub(payload);
+      const ai = JSON.parse(raw) as Record<string, unknown>;
+      breakdown = parseAiBreakdown(ai);
+      aiIpos = Array.isArray(ai.ipos)
+        ? (ai.ipos as Record<string, unknown>[])
+        : undefined;
+    } catch {
+      /* Groq unavailable — factual data + rule-based analysis still returned */
+    }
+
+    const ipos = mergeIpoAnalysis(records, aiIpos);
+
+    const marketContext =
+      breakdown.plain_summary ||
+      `Showing ${ipos.length} ${filter === 'recent' ? 'recently listed' : 'open/upcoming'} IPOs with verified NSE figures.`;
 
     return NextResponse.json({
       success: true,
       data: {
         ...breakdown,
         ipos,
-        market_context: String(ai.market_context || '').slice(0, 400),
+        market_context: marketContext.slice(0, 500),
         filter,
         category,
         budget,
+        data_sources: ['NSE India', 'Yahoo Finance', 'GNews', 'Google News'],
       },
     });
   } catch (e) {
