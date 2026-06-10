@@ -2,31 +2,45 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
-import { usePortfolioStore } from '../store/portfolioStore';
+import { usePortfolioStore, type PortfolioHolding } from '../store/portfolioStore';
+
+interface MarketQuote {
+  symbol: string;
+  shortName?: string;
+  regularMarketPrice?: number;
+  regularMarketChangePercent?: number;
+}
+
+interface HistoricalDataPoint {
+  date: string;
+  close?: number;
+  volume?: number;
+}
 
 export default function N314() {
   const [activeTab, setActiveTab] = useState<'overview' | 'screener' | 'ai' | 'portfolio'>('overview');
-  const [marketData, setMarketData] = useState<any[]>([]);
-  const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [marketData, setMarketData] = useState<MarketQuote[]>([]);
+  const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
   const [stockPrices, setStockPrices] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [screenerLoading, setScreenerLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
 
   // AI Chat
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([
-    { role: 'assistant', content: 'Hello! I\'m your N314 AI Stock Advisor. Ask me about any NSE stock, market trends, or your portfolio.' }
+    { role: 'assistant', content: "Hello! I'm your N314 AI Stock Advisor. Ask me about any NSE stock, market trends, or your portfolio." }
   ]);
   const [input, setInput] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const { holdings, addHolding, removeHolding, clearPortfolio } = usePortfolioStore();
 
-  // Auto-scroll chat to bottom
+  // Auto-scroll chat
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, aiLoading]);
 
   const fetchMarketData = async () => {
     try {
@@ -83,6 +97,7 @@ export default function N314() {
     return () => clearInterval(interval);
   }, [fetchPortfolioPrices]);
 
+  // Portfolio value with real prices
   const portfolioValue = holdings.reduce((sum, holding) => {
     const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
     return sum + (holding.quantity * currentPrice);
@@ -92,7 +107,24 @@ export default function N314() {
     addHolding({ symbol: 'RELIANCE.NS', quantity: 10, avgPrice: 2450 });
   };
 
-  // AI Chat Functions
+  // Manual add to portfolio
+  const [newSymbol, setNewSymbol] = useState('');
+  const [newQuantity, setNewQuantity] = useState(1);
+  const [newAvgPrice, setNewAvgPrice] = useState(0);
+
+  const handleAddHolding = () => {
+    if (!newSymbol.trim() || newQuantity <= 0 || newAvgPrice <= 0) return;
+    addHolding({
+      symbol: newSymbol.toUpperCase().trim(),
+      quantity: newQuantity,
+      avgPrice: newAvgPrice,
+    });
+    setNewSymbol('');
+    setNewQuantity(1);
+    setNewAvgPrice(0);
+  };
+
+  // AI Send Message
   const sendMessage = async () => {
     if (!input.trim() || aiLoading) return;
 
@@ -107,16 +139,15 @@ export default function N314() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: input.trim() }),
       });
-
       const data = await res.json();
 
       if (data.success) {
         setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.error || 'Sorry, I encountered an error. Please try again.' }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: data.error || 'Sorry, something went wrong.' }]);
       }
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Failed to connect to AI. Please check your connection.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Failed to connect to AI. Please try again later.' }]);
     } finally {
       setAiLoading(false);
     }
@@ -154,7 +185,7 @@ export default function N314() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-10">
-        {/* OVERVIEW TAB */}
+        {/* OVERVIEW */}
         {activeTab === 'overview' && (
           <>
             <h2 className="text-5xl font-semibold tracking-tight mb-8">Market Overview</h2>
@@ -165,7 +196,7 @@ export default function N314() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                {marketData.map((quote: any, i: number) => {
+                {marketData.map((quote, i) => {
                   const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
                   return (
                     <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
@@ -214,17 +245,18 @@ export default function N314() {
           </>
         )}
 
-        {/* SCREENER TAB */}
+        {/* SCREENER */}
         {activeTab === 'screener' && (
-          <div className="text-center py-20">
-            <h3 className="text-3xl font-semibold mb-4">Stock Screener</h3>
-            <p className="text-zinc-400 max-w-md mx-auto">
-              Powerful stock screening with TanStack Table is ready. Advanced filters and columns coming in future updates.
-            </p>
+          <div>
+            <h2 className="text-4xl font-semibold tracking-tight mb-6">Stock Screener</h2>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 text-center">
+              <p className="text-zinc-400">Advanced TanStack Table screener with filters coming soon.</p>
+              <p className="text-sm text-zinc-500 mt-2">Currently showing popular stocks via live data.</p>
+            </div>
           </div>
         )}
 
-        {/* AI INSIGHTS TAB - FULLY BUILT CHAT */}
+        {/* AI CHAT - FULLY BUILT */}
         {activeTab === 'ai' && (
           <div className="max-w-3xl mx-auto">
             <div className="mb-6">
@@ -232,30 +264,29 @@ export default function N314() {
               <p className="text-zinc-400 mt-2">Powered by Google Gemini • Ask about any NSE stock or market trend</p>
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl flex flex-col h-[600px]">
-              {/* Chat Messages */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl flex flex-col h-[620px]">
               <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
                 {messages.map((msg, index) => (
                   <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] px-5 py-3.5 rounded-3xl text-[15px] leading-relaxed ${msg.role === 'user' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-100'}`}>
+                    <div className={`max-w-[82%] px-5 py-3.5 rounded-3xl text-[15px] leading-relaxed ${msg.role === 'user' ? 'bg-emerald-600' : 'bg-zinc-800'}`}>
                       {msg.content}
                     </div>
                   </div>
                 ))}
                 {aiLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-zinc-800 px-5 py-3.5 rounded-3xl">
-                      <div className="flex items-center gap-2 text-zinc-400">
-                        <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                        <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div className="bg-zinc-800 px-5 py-3.5 rounded-3xl flex items-center gap-2">
+                      <div className="flex gap-1">
+                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
                       </div>
+                      <span className="text-xs text-zinc-400 ml-2">Thinking...</span>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Input Area */}
               <div className="p-4 border-t border-zinc-800">
                 <div className="flex gap-3">
                   <input
@@ -264,41 +295,32 @@ export default function N314() {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Ask about Reliance, market outlook, or any stock..."
-                    className="flex-1 bg-zinc-950 border border-zinc-700 rounded-2xl px-5 py-3.5 text-[15px] focus:outline-none focus:border-emerald-500 placeholder:text-zinc-500"
+                    className="flex-1 bg-zinc-950 border border-zinc-700 rounded-2xl px-5 py-3 focus:outline-none focus:border-emerald-500 text-[15px]"
                     disabled={aiLoading}
                   />
                   <button
                     onClick={sendMessage}
                     disabled={aiLoading || !input.trim()}
-                    className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:cursor-not-allowed px-8 rounded-2xl font-medium transition-colors flex items-center"
-                  >
-                    Send
-                  </button>
+                    className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 px-8 rounded-2xl font-medium transition-colors"
+                  >Send</button>
                 </div>
-                <p className="text-[10px] text-zinc-500 mt-2 text-center">
-                  AI responses are for informational purposes only. Not financial advice.
-                </p>
+                <p className="text-[10px] text-center text-zinc-500 mt-2">Not financial advice. For informational purposes only.</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* PORTFOLIO TAB */}
+        {/* PORTFOLIO */}
         {activeTab === 'portfolio' && (
           <div>
             <div className="flex justify-between items-center mb-8">
               <div>
                 <h2 className="text-4xl font-semibold tracking-tight">My Portfolio</h2>
-                <p className="text-zinc-400 mt-1">Real-time value using live prices</p>
+                <p className="text-zinc-400 mt-1">Real-time P&amp;L using live prices</p>
               </div>
-              <div className="flex gap-3">
-                <button onClick={addSampleHolding} className="px-4 py-2 bg-emerald-600 rounded-xl text-sm hover:bg-emerald-500">
-                  Add Sample (RELIANCE)
-                </button>
-                <button onClick={clearPortfolio} className="px-4 py-2 bg-red-600/20 text-red-400 rounded-xl hover:bg-red-600/30 text-sm">
-                  Clear All
-                </button>
-              </div>
+              <button onClick={clearPortfolio} className="px-4 py-2 bg-red-600/20 text-red-400 rounded-xl hover:bg-red-600/30 text-sm">
+                Clear Portfolio
+              </button>
             </div>
 
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-8">
@@ -306,11 +328,19 @@ export default function N314() {
               <div className="text-5xl font-mono mt-2 text-emerald-400">₹{portfolioValue.toLocaleString('en-IN')}</div>
             </div>
 
-            {holdings.length === 0 ? (
-              <div className="text-center py-16 text-zinc-400 border border-zinc-800 rounded-3xl">
-                Your portfolio is empty.<br />
-                Click "Add Sample" to get started.
+            {/* Add New Holding Form */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8">
+              <h4 className="font-medium mb-4">Add New Holding</h4>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <input type="text" placeholder="Symbol (e.g. TCS.NS)" value={newSymbol} onChange={(e) => setNewSymbol(e.target.value)} className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5" />
+                <input type="number" placeholder="Quantity" value={newQuantity} onChange={(e) => setNewQuantity(Number(e.target.value))} className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5" />
+                <input type="number" placeholder="Avg Buy Price" value={newAvgPrice} onChange={(e) => setNewAvgPrice(Number(e.target.value))} className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5" />
+                <button onClick={handleAddHolding} className="bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium">Add Holding</button>
               </div>
+            </div>
+
+            {holdings.length === 0 ? (
+              <div className="text-center py-12 text-zinc-400 border border-zinc-800 rounded-3xl">Your portfolio is empty. Add holdings above.</div>
             ) : (
               <div className="space-y-4">
                 {holdings.map((holding, index) => {
@@ -323,9 +353,7 @@ export default function N314() {
                     <div key={index} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex justify-between items-center">
                       <div>
                         <div className="font-mono text-xl">{holding.symbol}</div>
-                        <div className="text-sm text-zinc-400 mt-1">
-                          {holding.quantity} shares @ avg ₹{holding.avgPrice} → Current ₹{currentPrice.toFixed(2)}
-                        </div>
+                        <div className="text-sm text-zinc-400 mt-1">{holding.quantity} shares @ avg ₹{holding.avgPrice}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-xl font-mono">₹{currentValue.toFixed(0)}</div>
@@ -333,9 +361,7 @@ export default function N314() {
                           {gainLoss >= 0 ? '+' : ''}₹{gainLoss.toFixed(0)} ({gainLossPercent.toFixed(1)}%)
                         </div>
                       </div>
-                      <button onClick={() => removeHolding(holding.symbol)} className="ml-6 text-red-400 hover:text-red-500">
-                        Remove
-                      </button>
+                      <button onClick={() => removeHolding(holding.symbol)} className="ml-6 text-red-400 hover:text-red-500 text-sm">Remove</button>
                     </div>
                   );
                 })}
