@@ -9,6 +9,7 @@ export default function N314() {
   const [marketData, setMarketData] = useState<any[]>([]);
   const [historicalData, setHistoricalData] = useState<any[]>([]);
   const [stockPrices, setStockPrices] = useState<Record<string, number>>({});
+  const [isLoading, setIsLoading] = useState(true);
 
   const { holdings, addHolding, removeHolding, clearPortfolio } = usePortfolioStore();
 
@@ -53,8 +54,13 @@ export default function N314() {
   }, [holdings]);
 
   useEffect(() => {
-    fetchMarketData();
-    fetchHistorical();
+    const loadData = async () => {
+      setIsLoading(true);
+      await Promise.all([fetchMarketData(), fetchHistorical()]);
+      setIsLoading(false);
+    };
+    loadData();
+
     const interval = setInterval(() => {
       fetchMarketData();
       fetchPortfolioPrices();
@@ -100,20 +106,26 @@ export default function N314() {
           <>
             <h2 className="text-5xl font-semibold tracking-tight mb-8">Market Overview</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-              {marketData.length > 0 ? marketData.map((quote: any, i: number) => {
-                const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
-                return (
-                  <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-                    <div className="text-sm text-zinc-500">{quote.symbol?.replace('^', '')}</div>
-                    <div className="text-4xl font-mono mt-3">{quote.regularMarketPrice?.toLocaleString('en-IN')}</div>
-                    <div className={`mt-2 text-lg font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {isPositive ? '+' : ''}{quote.regularMarketChangePercent?.toFixed(2)}%
+            {isLoading && marketData.length === 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                {[1,2,3].map(i => <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 h-40 animate-pulse" />)}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                {marketData.map((quote: any, i: number) => {
+                  const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
+                  return (
+                    <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+                      <div className="text-sm text-zinc-500">{quote.symbol?.replace('^', '')}</div>
+                      <div className="text-4xl font-mono mt-3">{quote.regularMarketPrice?.toLocaleString('en-IN')}</div>
+                      <div className={`mt-2 text-lg font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {isPositive ? '+' : ''}{quote.regularMarketChangePercent?.toFixed(2)}%
+                      </div>
                     </div>
-                  </div>
-                );
-              }) : <div className="col-span-3 text-center py-8 text-zinc-400">Loading live data...</div>}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="mb-12">
               <h3 className="text-2xl font-semibold mb-6">NIFTY 50 - 30 Day Trend</h3>
@@ -177,7 +189,7 @@ export default function N314() {
             {holdings.length === 0 ? (
               <div className="text-center py-16 text-zinc-400 border border-zinc-800 rounded-3xl">
                 Your portfolio is empty.<br />
-                Click &quot;Add Sample&quot; to get started.
+                Click "Add Sample" to get started.
               </div>
             ) : (
               <div className="space-y-4">
