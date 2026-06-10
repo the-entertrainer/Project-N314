@@ -1,9 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDown, ArrowUp } from 'lucide-react';
-import ThreeDOrb from '../components/ThreeDOrb';
 import ShellWrapper from '../components/ShellWrapper';
 import IntelligenceReport from '../components/IntelligenceReport';
 import LiveMarketPanel from '../components/charts/LiveMarketPanel';
@@ -40,14 +38,8 @@ function N314App() {
   const [marketData, setMarketData] = useState<MarketQuote[]>([]);
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showPreloader, setShowPreloader] = useState(true);
 
   usePortfolioBootstrap();
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowPreloader(false), 1200);
-    return () => clearTimeout(timer);
-  }, []);
 
   const fetchMarketData = async () => {
     try {
@@ -86,28 +78,7 @@ function N314App() {
   }, [activeTab]);
 
   return (
-    <>
-      <AnimatePresence>
-        {showPreloader && (
-          <motion.div
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.6, ease: 'easeOut' } }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950"
-          >
-            <div className="text-center">
-              <div className="flex justify-center mb-5">
-                <ThreeDOrb size="lg" />
-              </div>
-              <div className="text-4xl sm:text-5xl font-semibold tracking-tight">N314</div>
-              <div className="text-emerald-400 text-[10px] tracking-[0.25em] mt-2 uppercase">
-                Stock Intelligence
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <ShellWrapper>
+    <ShellWrapper>
         {activeTab === 'overview' && (
           <div className="space-y-6">
             <div>
@@ -167,8 +138,7 @@ function N314App() {
         {activeTab === 'screener' && <Screener />}
         {activeTab === 'ai' && <IntelligenceReport />}
         {activeTab === 'portfolio' && <Portfolio />}
-      </ShellWrapper>
-    </>
+    </ShellWrapper>
   );
 }
 
