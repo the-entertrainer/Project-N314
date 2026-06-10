@@ -322,11 +322,7 @@ export default function N314() {
                   {marketData.map((quote, i) => {
                     const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
                     return (
-                      <motion.div 
-                        key={i}
-                        whileHover={{ y: -4 }}
-                        className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 transition-all hover:border-emerald-500/30"
-                      >
+                      <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
                         <div className="text-sm text-zinc-500">{quote.symbol?.replace('^', '')}</div>
                         <div className="text-4xl font-mono mt-3">{quote.regularMarketPrice?.toLocaleString('en-IN')}</div>
                         <div className={`mt-2 text-lg font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -443,10 +439,7 @@ export default function N314() {
                       if (!stock) return null;
                       const isPositive = (stock.regularMarketChangePercent || 0) >= 0;
                       return (
-                        <motion.div 
-                          key={symbol}
-                          whileHover={{ scale: 1.01 }}
-                          className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex justify-between items-center">
+                        <div key={symbol} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex justify-between items-center">
                           <div>
                             <div className="font-mono font-semibold">{symbol}</div>
                             <div className="text-sm text-zinc-400">{stock.shortName}</div>
@@ -458,7 +451,7 @@ export default function N314() {
                             </div>
                           </div>
                           <button onClick={() => toggleWatchlist(symbol)} className="ml-4 text-red-400 hover:text-red-500 text-xl leading-none">×</button>
-                        </motion.div>
+                        </div>
                       );
                     })}
                   </div>
@@ -477,16 +470,11 @@ export default function N314() {
               <div className="bg-zinc-900 border border-zinc-800 rounded-3xl flex flex-col h-[620px]">
                 <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
                   {messages.map((msg, index) => (
-                    <motion.div 
-                      key={index}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
+                    <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[82%] px-5 py-3.5 rounded-3xl text-[15px] leading-relaxed ${msg.role === 'user' ? 'bg-emerald-600' : 'bg-zinc-800'}`}>
                         {msg.content}
                       </div>
-                    </motion.div>
+                    </div>
                   ))}
                   {aiLoading && (
                     <div className="flex justify-start">
@@ -563,10 +551,7 @@ export default function N314() {
                     const gainLossPercent = ((currentPrice - holding.avgPrice) / holding.avgPrice) * 100;
 
                     return (
-                      <motion.div 
-                        key={index}
-                        whileHover={{ scale: 1.005 }}
-                        className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex justify-between items-center">
+                      <div key={index} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex justify-between items-center">
                         <div>
                           <div className="font-mono text-xl">{holding.symbol}</div>
                           <div className="text-sm text-zinc-400 mt-1">
@@ -580,7 +565,7 @@ export default function N314() {
                           </div>
                         </div>
                         <button onClick={() => removeHolding(holding.symbol)} className="ml-6 text-red-400 hover:text-red-500 text-sm">Remove</button>
-                      </motion.div>
+                      </div>
                     );
                   })}
                 </div>
