@@ -267,14 +267,12 @@ export default function N314() {
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.6 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950"
-          >
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950">
             <div className="text-center">
               <motion.div 
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 1.2, repeat: Infinity }}
-                className="w-16 h-16 mx-auto mb-6 bg-emerald-500 rounded-2xl flex items-center justify-center"
-              >
+                className="w-16 h-16 mx-auto mb-6 bg-emerald-500 rounded-2xl flex items-center justify-center">
                 <span className="text-4xl font-bold text-black">N</span>
               </motion.div>
               <p className="text-emerald-400 text-sm tracking-[4px]">N314 STOCK INTELLIGENCE</p>
