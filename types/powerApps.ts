@@ -1,17 +1,30 @@
 export type PowerPanelId = 'nifty' | 'fiidii' | 'fno' | 'equity' | 'ipo';
 
-export interface NiftyStrategyResult {
+export interface AiBreakdown {
+  plain_summary: string;
+  logic_steps: string[];
+  indicator_explanation: string;
+}
+
+export interface NiftyStrategyResult extends AiBreakdown {
   current_price: number;
   trend_slope: number;
   predicted_next_day: number;
   predicted_week: number;
+  lookback_days: number;
   baseline_trend: string;
-  strategies: string[];
+  strategies: { name: string; steps: string[]; why: string }[];
   outlook: string;
   risk_level: string;
 }
 
-export interface FiiDiiResult {
+export interface FiiDiiSession {
+  date: string;
+  fii_net_cr: number;
+  dii_net_cr: number;
+}
+
+export interface FiiDiiResult extends AiBreakdown {
   fii_net_cr: number;
   dii_net_cr: number;
   fii_buy_cr: number;
@@ -19,46 +32,62 @@ export interface FiiDiiResult {
   dii_buy_cr: number;
   dii_sell_cr: number;
   date: string;
+  sessions: FiiDiiSession[];
   institutional_sentiment: string;
   market_impact: string;
+  accumulation_trend: string;
   analysis: string;
 }
 
-export interface FnoResult {
+export interface FnoResult extends AiBreakdown {
   top_symbol: string;
   volume_share_pct: number;
   current_price: number;
   trend: string;
+  sort_mode: string;
   strategy: string;
   instrument: string;
   risk_reward_ratio: string;
   entry_zone: string;
   stop_loss: string;
   target: string;
+  trade_steps: string[];
 }
 
-export interface EquityDeepResult {
+export interface EquityDeepResult extends AiBreakdown {
   symbol: string;
   company_name: string;
   sector: string;
+  timeline: string;
   buy_zone: string;
   target_price: string;
   risks: string[];
   catalysts: string[];
   sector_health: string;
-  summary: string;
   pe_ratio?: number;
   growth_trend: string;
+  investment_plan: string[];
 }
+
+export type IpoAction =
+  | 'Apply for Short-Term Listing Gains'
+  | 'Accumulate for Long-Term Value'
+  | 'Avoid Completely';
 
 export interface IpoItem {
   name: string;
-  recommendation: 'Long-Term Buy' | 'Apply for Short-Term Listing Gains' | 'Avoid';
-  reasons: string[];
+  status: 'upcoming' | 'recent';
+  pros: string[];
+  cons: string[];
+  action: IpoAction;
+  rationale: string;
   summary: string;
 }
 
-export interface IpoResult {
+export interface IpoResult extends AiBreakdown {
   ipos: IpoItem[];
   market_context: string;
+  filter: string;
+  category: string;
+  budget: string;
 }

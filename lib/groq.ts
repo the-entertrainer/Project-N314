@@ -130,7 +130,7 @@ export async function callGroqPortfolio(portfolioPayload: string, newsPayload: s
   return groqRequest(body, 3);
 }
 
-export async function callGroqPower(systemPrompt: string, userPayload: string, maxTokens = 500) {
+export async function callGroqPower(systemPrompt: string, userPayload: string, maxTokens = 700) {
   const body = {
     model: FAST_MODEL,
     temperature: 0.15,

@@ -64,10 +64,10 @@ export function extractCloses(chart: Awaited<ReturnType<typeof fetchYahooChart>>
     .filter((d): d is { date: string; close: number } => d.close != null && d.close > 0);
 }
 
-export async function fetchNiftyTrend() {
+export async function fetchNiftyTrend(lookback = 20) {
   const chart = await fetchYahooChart('^NSEI', '3mo');
   const series = extractCloses(chart);
-  const recent = series.slice(-20).map((d) => d.close);
+  const recent = series.slice(-lookback).map((d) => d.close);
   const { slope, intercept } = linearTrend(recent);
   const current = chart.meta.regularMarketPrice ?? recent[recent.length - 1];
   const nextDay = intercept + slope * recent.length;
@@ -84,6 +84,7 @@ export async function fetchNiftyTrend() {
     pct_week: Math.round(pctWeek * 100) / 100,
     recent_closes: recent.slice(-5).join(','),
     direction: slope > 0 ? 'upward' : slope < 0 ? 'downward' : 'flat',
+    lookback_days: lookback,
   };
 }
 
@@ -93,6 +94,49 @@ interface FiiDiiRow {
   buyValue?: string;
   sellValue?: string;
   netValue?: string;
+}
+
+export async function fetchFiiDiiHistory(sessions: number) {
+  const current = await fetchFiiDiiFlows();
+  const history: Array<{ date: string; fii_net_cr: number; dii_net_cr: number }> = [
+    {
+      date: current.date,
+      fii_net_cr: current.fii_net_cr,
+      dii_net_cr: current.dii_net_cr,
+    },
+  ];
+
+  if (sessions > 1) {
+    try {
+      await fetch('https://www.nseindia.com', { headers: NSE_HEADERS, cache: 'no-store' });
+      const res = await fetch(
+        `https://www.nseindia.com/api/fiidiiTradeReact?limit=${sessions}`,
+        { headers: NSE_HEADERS, cache: 'no-store' }
+      );
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          const grouped = new Map<string, { fii: number; dii: number }>();
+          for (const row of rows) {
+            const cat = (row.category || '').toLowerCase();
+            const date = row.date || current.date;
+            const net = parseFloat((row.netValue || '0').replace(/,/g, '')) || 0;
+            const entry = grouped.get(date) || { fii: 0, dii: 0 };
+            if (cat.includes('fii')) entry.fii = net;
+            if (cat.includes('dii')) entry.dii = net;
+            grouped.set(date, entry);
+          }
+          return Array.from(grouped.entries())
+            .slice(0, sessions)
+            .map(([date, v]) => ({ date, fii_net_cr: v.fii, dii_net_cr: v.dii }));
+        }
+      }
+    } catch {
+      /* only latest session available */
+    }
+  }
+
+  return history.slice(0, sessions);
 }
 
 export async function fetchFiiDiiFlows() {
@@ -148,44 +192,64 @@ const FNO_CANDIDATES = [
   'BANKBEES.NS',
 ];
 
-export async function fetchFnoLeader() {
+type FnoSort = 'volume' | 'oi_change' | 'price_delta';
+
+export async function fetchFnoLeader(sort: FnoSort = 'volume') {
   const results = await Promise.allSettled(FNO_CANDIDATES.map((s) => fetchYahooChart(s, '5d')));
 
-  let topSymbol = FNO_CANDIDATES[0];
-  let topVolume = 0;
-  let topPrice = 0;
-  let trendPct = 0;
+  const scored: Array<{
+    symbol: string;
+    volume: number;
+    oiProxy: number;
+    priceDelta: number;
+    price: number;
+    trendPct: number;
+  }> = [];
 
   results.forEach((r, i) => {
     if (r.status !== 'fulfilled') return;
     const vol = r.value.indicators?.quote?.[0]?.volume || [];
     const closes = r.value.indicators?.quote?.[0]?.close || [];
     const totalVol = vol.reduce((s, v) => s + (v || 0), 0);
-    if (totalVol > topVolume) {
-      topVolume = totalVol;
-      topSymbol = FNO_CANDIDATES[i];
-      topPrice = r.value.meta.regularMarketPrice ?? closes[closes.length - 1] ?? 0;
-      const first = closes.find((c) => c != null && c > 0);
-      const last = closes[closes.length - 1];
-      if (first && last) trendPct = ((last - first) / first) * 100;
-    }
+    const lastVol = vol[vol.length - 1] || 0;
+    const avgVol = totalVol / (vol.length || 1);
+    const oiProxy = avgVol > 0 ? ((lastVol - avgVol) / avgVol) * 100 : 0;
+    const first = closes.find((c) => c != null && c > 0);
+    const last = closes[closes.length - 1] ?? 0;
+    const priceDelta = first ? ((last - first) / first) * 100 : 0;
+    scored.push({
+      symbol: FNO_CANDIDATES[i],
+      volume: totalVol,
+      oiProxy,
+      priceDelta,
+      price: r.value.meta.regularMarketPrice ?? last,
+      trendPct: priceDelta,
+    });
   });
 
-  const allVolumes = results
-    .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof fetchYahooChart>>> => r.status === 'fulfilled')
-    .map((r) => {
-      const vol = r.value.indicators?.quote?.[0]?.volume || [];
-      return vol.reduce((s, v) => s + (v || 0), 0);
-    });
-  const totalMarketVol = allVolumes.reduce((s, v) => s + v, 0);
-  const volumeShare = totalMarketVol > 0 ? (topVolume / totalMarketVol) * 100 : 0;
+  const key = sort === 'volume' ? 'volume' : sort === 'oi_change' ? 'oiProxy' : 'priceDelta';
+  scored.sort((a, b) => Math.abs(b[key]) - Math.abs(a[key]));
+  const top = scored[0] || {
+    symbol: FNO_CANDIDATES[0],
+    volume: 0,
+    oiProxy: 0,
+    priceDelta: 0,
+    price: 0,
+    trendPct: 0,
+  };
+
+  const totalMarketVol = scored.reduce((s, x) => s + x.volume, 0);
+  const volumeShare = totalMarketVol > 0 ? (top.volume / totalMarketVol) * 100 : 0;
 
   return {
-    top_symbol: topSymbol,
+    top_symbol: top.symbol,
     volume_share_pct: Math.round(volumeShare * 10) / 10,
-    current_price: topPrice,
-    trend_pct: Math.round(trendPct * 100) / 100,
-    trend: trendPct > 0.5 ? 'bullish' : trendPct < -0.5 ? 'bearish' : 'neutral',
+    current_price: top.price,
+    trend_pct: Math.round(top.trendPct * 100) / 100,
+    trend: top.trendPct > 0.5 ? 'bullish' : top.trendPct < -0.5 ? 'bearish' : 'neutral',
+    sort_mode: sort,
+    oi_change_proxy: Math.round(top.oiProxy * 10) / 10,
+    price_delta: Math.round(top.priceDelta * 100) / 100,
   };
 }
 
@@ -215,9 +279,12 @@ export async function fetchEquityFundamentals(symbol: string) {
   };
 }
 
-export async function fetchIpoHeadlines() {
+export async function fetchIpoHeadlines(filter: 'upcoming' | 'recent' = 'upcoming') {
   const gnewsKey = process.env.GNEWS_API_KEY;
-  const queries = ['India IPO 2025 2026 listing', 'India upcoming IPO subscription'];
+  const queries =
+    filter === 'upcoming'
+      ? ['India upcoming IPO 2026 subscription open', 'India IPO DRHP filed 2026']
+      : ['India recent IPO listing gains 2026', 'India newly listed IPO performance'];
   const headlines: { title: string; date: string }[] = [];
   const seen = new Set<string>();
 

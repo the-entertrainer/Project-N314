@@ -7,8 +7,10 @@ export type AppTab = 'overview' | 'screener' | 'ai' | 'portfolio' | 'powerapps';
 interface NavigationState {
   activeTab: AppTab;
   activePowerPanel: PowerPanelId;
+  lastPowerAppPath: string;
   setActiveTab: (tab: AppTab) => void;
   setActivePowerPanel: (panel: PowerPanelId) => void;
+  setLastPowerAppPath: (path: string) => void;
 }
 
 export const useNavigationStore = create<NavigationState>()(
@@ -16,8 +18,10 @@ export const useNavigationStore = create<NavigationState>()(
     (set) => ({
       activeTab: 'overview',
       activePowerPanel: 'nifty',
+      lastPowerAppPath: '/power-apps',
       setActiveTab: (tab) => set({ activeTab: tab }),
       setActivePowerPanel: (panel) => set({ activePowerPanel: panel }),
+      setLastPowerAppPath: (path) => set({ lastPowerAppPath: path }),
     }),
     { name: 'n314-navigation' }
   )

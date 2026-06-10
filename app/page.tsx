@@ -4,15 +4,14 @@ import { Suspense, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import ThreeDOrb from '../components/ThreeDOrb';
-import AppShell from '../components/AppShell';
+import ShellWrapper from '../components/ShellWrapper';
 import IntelligenceReport from '../components/IntelligenceReport';
 import LiveMarketPanel from '../components/charts/LiveMarketPanel';
 import LivePriceTicker from '../components/LivePriceTicker';
 import Screener from '../components/Screener';
 import Portfolio from '../components/Portfolio';
-import PowerApps from '../components/PowerApps';
 import { usePortfolioBootstrap } from '../hooks/usePortfolioBootstrap';
-import { useAppNavigation } from '../hooks/useAppNavigation';
+import { useNavigationStore } from '../store/navigationStore';
 
 interface MarketQuote {
   symbol: string;
@@ -37,7 +36,7 @@ function formatIndexLabel(symbol?: string) {
 }
 
 function N314App() {
-  const { activeTab, activePowerPanel, setActiveTab, setActivePowerPanel } = useAppNavigation();
+  const activeTab = useNavigationStore((s) => s.activeTab);
   const [marketData, setMarketData] = useState<MarketQuote[]>([]);
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,7 +107,7 @@ function N314App() {
         )}
       </AnimatePresence>
 
-      <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
+      <ShellWrapper>
         {activeTab === 'overview' && (
           <div className="space-y-6">
             <div>
@@ -150,11 +149,7 @@ function N314App() {
                               : 'bg-red-500/10 text-red-400'
                           }`}
                         >
-                          {isPositive ? (
-                            <ArrowUp className="w-3 h-3" />
-                          ) : (
-                            <ArrowDown className="w-3 h-3" />
-                          )}
+                          {isPositive ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                           {isPositive ? '+' : ''}
                           {quote.regularMarketChangePercent?.toFixed(2)}%
                         </div>
@@ -170,15 +165,9 @@ function N314App() {
         )}
 
         {activeTab === 'screener' && <Screener />}
-
         {activeTab === 'ai' && <IntelligenceReport />}
-
         {activeTab === 'portfolio' && <Portfolio />}
-
-        {activeTab === 'powerapps' && (
-          <PowerApps activePanel={activePowerPanel} onPanelChange={setActivePowerPanel} />
-        )}
-      </AppShell>
+      </ShellWrapper>
     </>
   );
 }
