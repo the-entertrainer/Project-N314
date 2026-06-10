@@ -28,4 +28,4 @@ export const useNavigationStore = create<NavigationState>()(
 );
 
 export const VALID_TABS: AppTab[] = ['overview', 'screener', 'ai', 'portfolio', 'powerapps'];
-export const VALID_PANELS: PowerPanelId[] = ['nifty', 'fiidii', 'fno', 'equity', 'ipo'];
+export const VALID_PANELS: PowerPanelId[] = ['nifty', 'fiidii', 'fno', 'equity', 'ipo', 'dailyreport'];

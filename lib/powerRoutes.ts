@@ -1,4 +1,4 @@
-import { TrendingUp, Users, BarChart3, Building2, Rocket, type LucideIcon } from 'lucide-react';
+import { TrendingUp, Users, BarChart3, Building2, Rocket, FileText, type LucideIcon } from 'lucide-react';
 import type { PowerPanelId } from '../types/powerApps';
 
 export interface PowerAppRoute {
@@ -62,6 +62,16 @@ export const POWER_APPS: PowerAppRoute[] = [
     description: 'Multi-IPO pros, cons & action plans',
     icon: Rocket,
     gradient: 'from-rose-500/20 to-pink-600/10',
+  },
+  {
+    id: 'dailyreport',
+    slug: 'daily-report',
+    path: '/power-apps/daily-report',
+    title: 'Daily Report',
+    subtitle: 'Institutional PDF',
+    description: 'Full-market intelligence report with PDF export',
+    icon: FileText,
+    gradient: 'from-sky-500/20 to-indigo-600/10',
   },
 ];
 

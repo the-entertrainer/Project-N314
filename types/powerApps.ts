@@ -1,4 +1,4 @@
-export type PowerPanelId = 'nifty' | 'fiidii' | 'fno' | 'equity' | 'ipo';
+export type PowerPanelId = 'nifty' | 'fiidii' | 'fno' | 'equity' | 'ipo' | 'dailyreport';
 
 export interface AiBreakdown {
   plain_summary: string;
