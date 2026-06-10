@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Loader2, FileDown, Sparkles, RefreshCw } from 'lucide-react';
+import { Loader2, Printer, RefreshCw, FileText } from 'lucide-react';
 import PowerAppLayout from '../PowerAppLayout';
-import DailyReportViewer from '../DailyReportViewer';
+import DailyReportDocument, { printDailyReport } from '../DailyReportDocument';
 import { POWER_APPS } from '../../../lib/powerRoutes';
 import { useDailyReportStore } from '../../../store/dailyReportStore';
-import { downloadDailyReportPdf } from '../../../lib/dailyReportPdf';
 import type { DailyReport } from '../../../types/dailyReport';
 
 const dailyMeta = POWER_APPS[5];
@@ -24,10 +23,10 @@ export function DailyReportApp() {
   const generate = useCallback(async () => {
     setLoading(true);
     setError('');
-    setProgress('Gathering NSE, Yahoo & screener data…');
+    setProgress('Fetching NSE, Yahoo Finance & screening stocks…');
     try {
       const res = await fetch('/api/power/daily-report', { method: 'POST' });
-      setProgress('Gemini generating report sections…');
+      setProgress('Building report from live market data…');
       const json = await res.json();
       if (!json.success) {
         setError(json.error || 'Report generation failed');
@@ -42,10 +41,6 @@ export function DailyReportApp() {
     }
   }, [setReport]);
 
-  const handleDownloadPdf = () => {
-    if (report) downloadDailyReportPdf(report);
-  };
-
   return (
     <PowerAppLayout
       title={dailyMeta.title}
@@ -53,17 +48,17 @@ export function DailyReportApp() {
       icon={dailyMeta.icon}
       path={dailyMeta.path}
       settings={
-        <div className="space-y-3">
+        <div className="space-y-3 no-print">
           <p className="text-[10px] text-zinc-500 leading-relaxed">
-            Generates an institutional-grade daily report via Gemini AI (split into focused sections to avoid token limits). Requires GEMINI_API_KEY on Vercel.
+            Builds a full institutional report from direct APIs (NSE, Yahoo Finance, Nifty 500) — no AI rate limits. Designed as printable PDF pages in-app.
           </p>
           <button
             onClick={generate}
             disabled={loading}
             className="btn-primary w-full py-3 flex items-center justify-center gap-2 text-sm"
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {loading ? 'Generating Report…' : report ? 'Regenerate Report' : 'Generate Daily Report'}
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+            {loading ? 'Building Report…' : report ? 'Refresh Report' : 'Generate Daily Report'}
           </button>
           {loading && progress && (
             <p className="text-[10px] text-emerald-400/80 text-center animate-pulse">{progress}</p>
@@ -71,11 +66,11 @@ export function DailyReportApp() {
           {report && !loading && (
             <div className="flex gap-2">
               <button
-                onClick={handleDownloadPdf}
+                onClick={printDailyReport}
                 className="btn-primary flex-1 py-2.5 flex items-center justify-center gap-2 text-xs"
               >
-                <FileDown className="w-4 h-4" />
-                Download PDF
+                <Printer className="w-4 h-4" />
+                Print / Save PDF
               </button>
               <button
                 onClick={clearReport}
@@ -96,11 +91,11 @@ export function DailyReportApp() {
     >
       {error && <ErrorBox error={error} />}
       {!report && !loading && !error && (
-        <div className="text-center py-12 text-zinc-500 text-sm">
-          Tap <span className="text-emerald-400">Generate Daily Report</span> to build today&apos;s institutional intelligence PDF.
+        <div className="text-center py-12 text-zinc-500 text-sm no-print">
+          Tap <span className="text-emerald-400">Generate Daily Report</span> to compile today&apos;s market intelligence from live data feeds.
         </div>
       )}
-      {report && <DailyReportViewer report={report} />}
+      {report && <DailyReportDocument report={report} />}
     </PowerAppLayout>
   );
 }

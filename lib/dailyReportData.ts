@@ -1,6 +1,8 @@
 import type { ReportStockRow } from '../types/dailyReport';
 import { getNifty500Registry } from './nifty500';
-import { fetchYahooChart, extractCloses, fetchFiiDiiFlows, fetchNiftyTrend } from './powerData';
+import { fetchYahooChart, extractCloses, fetchFiiDiiFlows, fetchNiftyTrend, fetchFnoUniverse } from './powerData';
+import type { IpoFactRecord } from './ipoFacts';
+import type { FnoUniverseItem } from './powerData';
 import { fetchIpoFactRecords } from './ipoFacts';
 import { calculateRSI, calculateSMA } from './technicalAnalysis';
 
@@ -153,7 +155,7 @@ function buildTop200(scored: ScoredStock[]): ReportStockRow[] {
 }
 
 export async function gatherDailyReportData() {
-  const [nifty, bankNifty, sensex, vix, flows, niftyTrend, scored, ipoUpcoming, ipoRecent] =
+  const [nifty, bankNifty, sensex, vix, flows, niftyTrend, scored, ipoUpcoming, ipoRecent, fnoUniverse] =
     await Promise.all([
       fetchIndexClose('^NSEI'),
       fetchIndexClose('^NSEBANK'),
@@ -164,6 +166,7 @@ export async function gatherDailyReportData() {
       batchScore(SCREEN_UNIVERSE),
       fetchIpoFactRecords('upcoming'),
       fetchIpoFactRecords('recent'),
+      fetchFnoUniverse(10),
     ]);
 
   const top200 = buildTop200(scored);
@@ -195,6 +198,8 @@ export async function gatherDailyReportData() {
     )
     .join('\n');
 
+  const ipoRecords: IpoFactRecord[] = [...ipoUpcoming.slice(0, 5), ...ipoRecent.slice(0, 5)];
+
   return {
     report_date: new Date().toISOString().slice(0, 10),
     indices: {
@@ -212,8 +217,10 @@ export async function gatherDailyReportData() {
     compactScored,
     compactTop200,
     ipoPayload,
+    ipoRecords,
+    fnoUniverse: fnoUniverse as FnoUniverseItem[],
     universe_size: registry.length,
-    data_sources: ['NSE India', 'Yahoo Finance', 'Nifty 500 Registry', 'GNews'],
+    data_sources: ['NSE India', 'Yahoo Finance', 'Nifty 500 Registry'],
   };
 }
 

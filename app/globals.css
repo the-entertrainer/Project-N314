@@ -209,3 +209,269 @@
     background-position: -200% center;
   }
 }
+
+/* ── Daily Report PDF-style document ── */
+.report-document {
+  width: 100%;
+  max-width: 100%;
+  padding-bottom: 2rem;
+}
+
+.report-sheet {
+  background: #ffffff;
+  color: #18181b;
+  max-width: 210mm;
+  margin: 0 auto 1.25rem;
+  padding: 14mm 12mm;
+  border-radius: 4px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.report-cover {
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: linear-gradient(135deg, #09090b 0%, #134e4a 100%);
+  color: #fafafa;
+}
+
+.report-brand {
+  font-size: 28px;
+  font-weight: 700;
+  color: #34d399;
+}
+
+.report-cover-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 12px;
+}
+
+.report-cover-sub {
+  font-size: 13px;
+  color: #6ee7b7;
+  margin-top: 4px;
+}
+
+.report-cover-meta {
+  margin-top: 20px;
+  font-size: 10px;
+  color: #a1a1aa;
+  line-height: 1.8;
+}
+
+.report-cover-sources {
+  margin-top: 12px;
+  font-size: 9px;
+  color: #71717a;
+}
+
+.report-cover-footer {
+  margin-top: auto;
+  padding-top: 24px;
+  font-size: 9px;
+  color: #52525b;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.report-h2 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #047857;
+  border-bottom: 2px solid #10b981;
+  padding-bottom: 6px;
+  margin: 0 0 12px;
+}
+
+.report-p {
+  margin: 0 0 8px;
+  color: #3f3f46;
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 12px;
+  font-size: 9px;
+}
+
+.report-table th {
+  background: #ecfdf5;
+  color: #047857;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid #d4d4d8;
+  font-weight: 600;
+}
+
+.report-table td {
+  padding: 5px 8px;
+  border: 1px solid #e4e4e7;
+  color: #3f3f46;
+  vertical-align: top;
+}
+
+.report-kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.report-kpi {
+  background: #f4f4f5;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.report-kpi span {
+  display: block;
+  font-size: 8px;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.report-kpi strong {
+  display: block;
+  font-size: 10px;
+  margin-top: 2px;
+  color: #18181b;
+}
+
+.report-tag-list {
+  margin: 8px 0;
+}
+
+.report-label {
+  display: block;
+  font-size: 8px;
+  color: #71717a;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.report-tag {
+  display: inline-block;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin: 2px 4px 2px 0;
+}
+
+.report-risks .report-tag {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.report-prob-bar {
+  display: flex;
+  height: 22px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 10px 0;
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.report-prob {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  min-width: 40px;
+}
+
+.report-prob.bullish { background: #059669; }
+.report-prob.neutral { background: #71717a; }
+.report-prob.bearish { background: #dc2626; }
+
+.report-stock-block {
+  border-bottom: 1px solid #e4e4e7;
+  padding: 8px 0;
+}
+
+.report-stock-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-stock-meta {
+  font-size: 9px;
+  color: #71717a;
+  margin: 2px 0 4px;
+}
+
+.report-badge {
+  font-size: 8px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.report-badge.strong-buy,
+.report-badge.buy { background: #d1fae5; color: #047857; }
+.report-badge.hold { background: #f4f4f5; color: #52525b; }
+.report-badge.avoid { background: #fee2e2; color: #b91c1c; }
+
+.report-note {
+  font-size: 8px;
+  color: #a1a1aa;
+  margin-top: 6px;
+}
+
+.report-disclaimer {
+  font-size: 8px;
+  color: #71717a;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e4e4e7;
+}
+
+@media print {
+  body {
+    background: white !important;
+    overflow: visible !important;
+    position: static !important;
+    height: auto !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #daily-report-print,
+  #daily-report-print * {
+    visibility: visible;
+  }
+
+  #daily-report-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  .report-sheet {
+    box-shadow: none;
+    margin: 0;
+    border-radius: 0;
+    page-break-after: always;
+    max-width: 100%;
+  }
+
+  header,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+}

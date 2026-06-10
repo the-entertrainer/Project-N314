@@ -194,17 +194,19 @@ const FNO_CANDIDATES = [
 
 type FnoSort = 'volume' | 'oi_change' | 'price_delta';
 
-export async function fetchFnoLeader(sort: FnoSort = 'volume') {
-  const results = await Promise.allSettled(FNO_CANDIDATES.map((s) => fetchYahooChart(s, '5d')));
+export interface FnoUniverseItem {
+  symbol: string;
+  volume: number;
+  oiProxy: number;
+  priceDelta: number;
+  price: number;
+  trendPct: number;
+  trend: 'bullish' | 'bearish' | 'neutral';
+}
 
-  const scored: Array<{
-    symbol: string;
-    volume: number;
-    oiProxy: number;
-    priceDelta: number;
-    price: number;
-    trendPct: number;
-  }> = [];
+async function scoreFnoUniverse(): Promise<FnoUniverseItem[]> {
+  const results = await Promise.allSettled(FNO_CANDIDATES.map((s) => fetchYahooChart(s, '5d')));
+  const scored: FnoUniverseItem[] = [];
 
   results.forEach((r, i) => {
     if (r.status !== 'fulfilled') return;
@@ -217,16 +219,27 @@ export async function fetchFnoLeader(sort: FnoSort = 'volume') {
     const first = closes.find((c) => c != null && c > 0);
     const last = closes[closes.length - 1] ?? 0;
     const priceDelta = first ? ((last - first) / first) * 100 : 0;
+    const trendPct = Math.round(priceDelta * 100) / 100;
     scored.push({
       symbol: FNO_CANDIDATES[i],
       volume: totalVol,
-      oiProxy,
-      priceDelta,
+      oiProxy: Math.round(oiProxy * 10) / 10,
+      priceDelta: trendPct,
       price: r.value.meta.regularMarketPrice ?? last,
-      trendPct: priceDelta,
+      trendPct,
+      trend: trendPct > 0.5 ? 'bullish' : trendPct < -0.5 ? 'bearish' : 'neutral',
     });
   });
 
+  return scored.sort((a, b) => b.volume - a.volume);
+}
+
+export async function fetchFnoUniverse(limit = 10) {
+  return (await scoreFnoUniverse()).slice(0, limit);
+}
+
+export async function fetchFnoLeader(sort: FnoSort = 'volume') {
+  const scored = await scoreFnoUniverse();
   const key = sort === 'volume' ? 'volume' : sort === 'oi_change' ? 'oiProxy' : 'priceDelta';
   scored.sort((a, b) => Math.abs(b[key]) - Math.abs(a[key]));
   const top = scored[0] || {
