@@ -9,7 +9,7 @@ export type AppTab = 'overview' | 'screener' | 'ai' | 'portfolio';
 const TABS: { id: AppTab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'screener', label: 'Screener', icon: Search },
-  { id: 'ai', label: 'AI Advisor', icon: Bot },
+  { id: 'ai', label: 'Intelligence', icon: Bot },
   { id: 'portfolio', label: 'Portfolio', icon: Wallet },
 ];
 
@@ -101,7 +101,7 @@ export default function AppShell({ activeTab, onTabChange, children }: AppShellP
             <p className="text-sm text-zinc-400 mt-0.5">
               {activeTab === 'overview' && 'Real-time insights across major Indian indices'}
               {activeTab === 'screener' && 'Find and track market opportunities'}
-              {activeTab === 'ai' && 'Powered by Google Gemini 2.0 Flash'}
+              {activeTab === 'ai' && 'Groq AI · Global news · Technical analysis'}
               {activeTab === 'portfolio' && 'Track holdings and performance'}
             </p>
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   useReactTable,
@@ -22,10 +22,11 @@ import {
   Bar,
   CartesianGrid,
 } from 'recharts';
-import { ArrowDown, ArrowUp, Minus, Send, Star, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Minus, Star, Trash2, X } from 'lucide-react';
 import { usePortfolioStore } from '../store/portfolioStore';
 import ThreeDOrb from '../components/ThreeDOrb';
 import AppShell, { AppTab } from '../components/AppShell';
+import IntelligenceReport from '../components/IntelligenceReport';
 
 interface MarketQuote {
   symbol: string;
@@ -69,17 +70,7 @@ export default function N314() {
   const [globalFilter, setGlobalFilter] = useState('');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [watchlist, setWatchlist] = useState<string[]>([]);
-  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([
-    {
-      role: 'assistant',
-      content:
-        "Hello! I'm your N314 AI Stock Advisor. Ask me about any NSE stock, market trends, or your portfolio.",
-    },
-  ]);
-  const [input, setInput] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
   const [showPreloader, setShowPreloader] = useState(true);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const { holdings, addHolding, removeHolding, clearPortfolio } = usePortfolioStore();
 
@@ -104,12 +95,6 @@ export default function N314() {
   useEffect(() => {
     localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlist));
   }, [watchlist]);
-
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
-  }, [messages, aiLoading]);
 
   const fetchMarketData = async () => {
     try {
@@ -224,43 +209,6 @@ export default function N314() {
     setNewSymbol('');
     setNewQuantity('1');
     setNewAvgPrice('');
-  };
-
-  const sendMessage = async () => {
-    const trimmed = input.trim();
-    if (!trimmed || aiLoading) return;
-    const userMessage = { role: 'user' as const, content: trimmed };
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
-    setAiLoading(true);
-
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: trimmed }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setMessages((prev) => [...prev, { role: 'assistant', content: data.response }]);
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: data.error || 'Sorry, something went wrong.' },
-        ]);
-      }
-    } catch {
-      setMessages((prev) => [...prev, { role: 'assistant', content: 'Failed to connect to AI.' }]);
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
   };
 
   const columns = useMemo(
@@ -666,70 +614,8 @@ export default function N314() {
           </div>
         )}
 
-        {/* AI */}
-        {activeTab === 'ai' && (
-          <div className="h-full flex flex-col max-w-4xl mx-auto w-full">
-            <div className="lg:hidden mb-4">
-              <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">AI Stock Advisor</h2>
-              <p className="text-zinc-400 text-sm mt-1">Google Gemini 2.0 Flash</p>
-            </div>
-
-            <div className="glass-card flex flex-col flex-1 min-h-[420px] sm:min-h-[500px] lg:min-h-[calc(100dvh-12rem)]">
-              <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-                {messages.map((msg, index) => (
-                  <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                    <div
-                      className={`max-w-[90%] sm:max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                        msg.role === 'user'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-zinc-800/80 border border-white/10'
-                      }`}
-                    >
-                      {msg.content}
-                    </div>
-                  </div>
-                ))}
-                {aiLoading && (
-                  <div className="flex items-center gap-2 text-xs text-zinc-400 px-1">
-                    <div className="flex gap-1">
-                      <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" />
-                      <span
-                        className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"
-                        style={{ animationDelay: '0.15s' }}
-                      />
-                      <span
-                        className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"
-                        style={{ animationDelay: '0.3s' }}
-                      />
-                    </div>
-                    Thinking...
-                  </div>
-                )}
-              </div>
-
-              <div className="p-3 sm:p-4 border-t border-white/10">
-                <div className="flex gap-2">
-                  <input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask anything about the market..."
-                    className="input-field flex-1"
-                    disabled={aiLoading}
-                  />
-                  <button
-                    onClick={sendMessage}
-                    disabled={aiLoading || !input.trim()}
-                    className="btn-primary px-4 sm:px-5 flex items-center gap-2"
-                  >
-                    <Send className="w-4 h-4" />
-                    <span className="hidden sm:inline">Send</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* AI Intelligence */}
+        {activeTab === 'ai' && <IntelligenceReport />}
 
         {/* PORTFOLIO */}
         {activeTab === 'portfolio' && (
