@@ -40,7 +40,6 @@ export default function N314() {
   const [screenerData, setScreenerData] = useState<MarketQuote[]>([]);
   const [screenerLoading, setScreenerLoading] = useState(false);
 
-  // Screener table state
   const [globalFilter, setGlobalFilter] = useState('');
   const [sorting, setSorting] = useState<SortingState>([]);
 
@@ -58,7 +57,7 @@ export default function N314() {
   const [showPreloader, setShowPreloader] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowPreloader(false), 1200);
+    const timer = setTimeout(() => setShowPreloader(false), 1400);
     return () => clearTimeout(timer);
   }, []);
 
@@ -213,27 +212,28 @@ export default function N314() {
   const columns = useMemo(() => [
     columnHelper.accessor('symbol', {
       header: 'Symbol',
-      cell: info => <span className="font-mono font-semibold">{info.getValue()}</span>,
+      cell: info => <span className="font-mono font-semibold tracking-tight">{info.getValue()}</span>,
     }),
     columnHelper.accessor('shortName', {
       header: 'Name',
-      cell: info => info.getValue() || '—',
+      cell: info => <span className="text-zinc-400">{info.getValue() || '—'}</span>,
     }),
     columnHelper.accessor('regularMarketPrice', {
       header: 'Price',
-      cell: info => info.getValue()?.toLocaleString('en-IN') || '—',
+      cell: info => <span className="font-mono">{info.getValue()?.toLocaleString('en-IN') || '—'}</span>,
     }),
     columnHelper.accessor('regularMarketChangePercent', {
-      header: 'Change %',
+      header: 'Change',
       cell: info => {
         const val = info.getValue();
-        if (val === undefined) return '—';
-        return <span className={val >= 0 ? 'text-emerald-400' : 'text-red-400'}>{val >= 0 ? '+' : ''}{val.toFixed(2)}%</span>;
+        if (val === undefined) return <span className="text-zinc-500">—</span>;
+        const positive = val >= 0;
+        return <span className={positive ? 'text-emerald-400' : 'text-red-400'}>{positive ? '+' : ''}{val.toFixed(2)}%</span>;
       },
     }),
     columnHelper.accessor('regularMarketVolume', {
       header: 'Volume',
-      cell: info => info.getValue() ? (info.getValue()! / 1_000_000).toFixed(1) + 'M' : '—',
+      cell: info => info.getValue() ? <span className="text-zinc-400">{(info.getValue()! / 1_000_000).toFixed(1)}M</span> : <span className="text-zinc-500">—</span>,
     }),
     columnHelper.accessor('symbol', {
       id: 'watchlist',
@@ -243,9 +243,9 @@ export default function N314() {
         return (
           <button 
             onClick={() => toggleWatchlist(symbol)}
-            className={`px-3 py-1 text-xs rounded-full transition-colors ${isInWatchlist(symbol) ? 'bg-emerald-600 text-white' : 'bg-zinc-700 hover:bg-zinc-600'}`}
+            className={`px-3.5 py-1 text-xs rounded-full transition-all active:scale-95 ${isInWatchlist(symbol) ? 'bg-emerald-500 text-black font-medium' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400'}`}
           >
-            {isInWatchlist(symbol) ? '★' : '☆'}
+            {isInWatchlist(symbol) ? '★ Watching' : '☆ Watch'}
           </button>
         );
       },
@@ -269,150 +269,183 @@ export default function N314() {
         {showPreloader && (
           <motion.div 
             initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.6 }}
+            exit={{ opacity: 0, transition: { duration: 0.5, ease: 'easeOut' } }}
             className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950">
             <div className="text-center">
-              <motion.div 
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 1.2, repeat: Infinity }}
-                className="w-16 h-16 mx-auto mb-6 bg-emerald-500 rounded-2xl flex items-center justify-center">
-                <span className="text-4xl font-bold text-black">N</span>
-              </motion.div>
-              <p className="text-emerald-400 text-sm tracking-[4px]">N314 STOCK INTELLIGENCE</p>
+              <div className="flex justify-center mb-6">
+                <ThreeDOrb />
+              </div>
+              <div>
+                <div className="text-5xl font-semibold tracking-[-2.5px]">N314</div>
+                <div className="text-emerald-400 text-sm tracking-[3px] mt-1">STOCK INTELLIGENCE</div>
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="min-h-screen bg-zinc-950 text-white">
-        <header className="border-b border-zinc-800 bg-zinc-900/95 backdrop-blur sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+      <div className="min-h-screen bg-zinc-950 text-white selection:bg-emerald-500/30">
+        {/* Premium Header */}
+        <header className="border-b border-white/10 bg-zinc-950/80 backdrop-blur-xl sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
+            <div className="flex items-center gap-4">
               <div className="flex items-center gap-3">
                 <ThreeDOrb />
                 <div>
-                  <h1 className="text-3xl font-semibold tracking-tighter">N314</h1>
-                  <p className="text-xs text-zinc-500 -mt-1">STOCK INTELLIGENCE</p>
+                  <div className="text-3xl font-semibold tracking-[-1.5px]">N314</div>
+                  <div className="text-[10px] text-zinc-500 -mt-1 tracking-[1.5px]">STOCK INTELLIGENCE</div>
                 </div>
               </div>
             </div>
-            <nav className="flex gap-2 text-sm font-medium">
-              <button onClick={() => setActiveTab('overview')} className={`px-6 py-2.5 rounded-2xl transition-all ${activeTab === 'overview' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}>Overview</button>
-              <button onClick={() => setActiveTab('screener')} className={`px-6 py-2.5 rounded-2xl transition-all ${activeTab === 'screener' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}>Screener</button>
-              <button onClick={() => setActiveTab('ai')} className={`px-6 py-2.5 rounded-2xl transition-all ${activeTab === 'ai' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}>AI Insights</button>
-              <button onClick={() => setActiveTab('portfolio')} className={`px-6 py-2.5 rounded-2xl transition-all ${activeTab === 'portfolio' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}>Portfolio</button>
+
+            <nav className="flex items-center gap-1.5 text-sm font-medium bg-zinc-900/60 p-1 rounded-3xl border border-white/10">
+              {(['overview', 'screener', 'ai', 'portfolio'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-6 py-2 rounded-3xl transition-all capitalize ${activeTab === tab ? 'bg-white text-black shadow-sm' : 'hover:bg-white/5 text-zinc-400 hover:text-white'}`}
+                >
+                  {tab}
+                </button>
+              ))}
             </nav>
-            <div className="text-xs px-4 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-2">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-              LIVE
+
+            <div className="flex items-center gap-3 text-xs">
+              <div className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-2">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                LIVE MARKET
+              </div>
             </div>
           </div>
         </header>
 
-        <main className="max-w-7xl mx-auto px-6 py-10">
+        <main className="max-w-7xl mx-auto px-8 py-10">
+          {/* OVERVIEW */}
           {activeTab === 'overview' && (
             <>
-              <h2 className="text-5xl font-semibold tracking-tight mb-8">Market Overview</h2>
+              <div className="flex items-end justify-between mb-8">
+                <div>
+                  <div className="text-6xl font-semibold tracking-[-2.5px]">Market Overview</div>
+                  <p className="text-zinc-400 mt-2 text-lg">Real-time insights across major Indian indices</p>
+                </div>
+              </div>
 
               {isLoading && marketData.length === 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                  {[1,2,3].map(i => <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 h-40 animate-pulse" />)}
+                  {[1,2,3].map(i => <div key={i} className="bg-zinc-900 border border-white/10 rounded-3xl p-8 h-44 animate-pulse" />)}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-14">
                   {marketData.map((quote, i) => {
                     const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
                     return (
-                      <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-                        <div className="text-sm text-zinc-500">{quote.symbol?.replace('^', '')}</div>
-                        <div className="text-4xl font-mono mt-3">{quote.regularMarketPrice?.toLocaleString('en-IN')}</div>
-                        <div className={`mt-2 text-lg font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {isPositive ? '+' : ''}{quote.regularMarketChangePercent?.toFixed(2)}%
+                      <motion.div 
+                        key={i} 
+                        whileHover={{ y: -2 }}
+                        className="bg-zinc-900 border border-white/10 rounded-3xl p-8 hover:border-white/20 transition-all group"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="text-sm text-zinc-500 tracking-wider">{quote.symbol?.replace('^', '')}</div>
+                            <div className="text-5xl font-mono tracking-[-1.5px] mt-3 tabular-nums">{quote.regularMarketPrice?.toLocaleString('en-IN')}</div>
+                          </div>
+                          <div className={`px-3 py-1 rounded-full text-xs font-medium ${isPositive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                            {isPositive ? '+' : ''}{quote.regularMarketChangePercent?.toFixed(2)}%
+                          </div>
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
               )}
 
-              <div className="mb-12">
-                <h3 className="text-2xl font-semibold mb-6">NIFTY 50 - 30 Day Trend</h3>
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="text-3xl font-semibold tracking-tight">NIFTY 50 • 30 Day Trend</div>
+                </div>
                 {historicalData.length > 0 ? (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-                      <div className="text-sm text-zinc-400 mb-4">Closing Price</div>
-                      <ResponsiveContainer width="100%" height={280}>
+                    <div className="bg-zinc-900 border border-white/10 rounded-3xl p-7">
+                      <div className="text-sm text-zinc-400 mb-4 flex items-center gap-2">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full" /> Closing Price
+                      </div>
+                      <ResponsiveContainer width="100%" height={260}>
                         <LineChart data={historicalData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                          <XAxis dataKey="date" stroke="#52525b" />
-                          <YAxis stroke="#52525b" domain={['auto', 'auto']} />
-                          <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none' }} />
-                          <Line type="monotone" dataKey="close" stroke="#10b981" strokeWidth={2} dot={false} />
+                          <XAxis dataKey="date" stroke="#3f3f46" fontSize={11} />
+                          <YAxis stroke="#3f3f46" fontSize={11} domain={['auto', 'auto']} />
+                          <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none', borderRadius: '8px' }} />
+                          <Line type="monotone" dataKey="close" stroke="#10b981" strokeWidth={2.5} dot={false} />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-                      <div className="text-sm text-zinc-400 mb-4">Volume</div>
-                      <ResponsiveContainer width="100%" height={280}>
+                    <div className="bg-zinc-900 border border-white/10 rounded-3xl p-7">
+                      <div className="text-sm text-zinc-400 mb-4 flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full" /> Volume
+                      </div>
+                      <ResponsiveContainer width="100%" height={260}>
                         <BarChart data={historicalData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                          <XAxis dataKey="date" stroke="#52525b" />
-                          <YAxis stroke="#52525b" />
-                          <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none' }} />
-                          <Bar dataKey="volume" fill="#3b82f6" />
+                          <XAxis dataKey="date" stroke="#3f3f46" fontSize={11} />
+                          <YAxis stroke="#3f3f46" fontSize={11} />
+                          <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none', borderRadius: '8px' }} />
+                          <Bar dataKey="volume" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
-                ) : <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center text-zinc-400">Loading chart data...</div>}
+                ) : <div className="bg-zinc-900 border border-white/10 rounded-3xl p-16 text-center text-zinc-400">Loading chart data...</div>}
               </div>
             </>
           )}
 
+          {/* SCREENER + WATCHLIST */}
           {activeTab === 'screener' && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-4xl font-semibold tracking-tight">Stock Screener</h2>
+            <div className="space-y-10">
+              <div>
+                <div className="text-5xl font-semibold tracking-[-2px] mb-2">Stock Screener</div>
+                <p className="text-zinc-400 text-lg">Discover and track high-potential stocks</p>
+              </div>
+
+              <div className="flex gap-3 items-center">
                 <input
                   type="text"
-                  placeholder="Search stocks..."
+                  placeholder="Search by symbol or name..."
                   value={globalFilter}
                   onChange={(e) => setGlobalFilter(e.target.value)}
-                  className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2 w-80 focus:outline-none focus:border-emerald-500"
+                  className="flex-1 max-w-md bg-zinc-900 border border-white/10 rounded-2xl px-5 py-3.5 focus:outline-none focus:border-emerald-500/50 placeholder:text-zinc-500"
                 />
               </div>
 
               {screenerLoading ? (
-                <div className="text-center py-20 text-zinc-400">Loading popular stocks...</div>
+                <div className="text-center py-20 text-zinc-400">Loading market data...</div>
               ) : (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden mb-8">
+                <div className="bg-zinc-900 border border-white/10 rounded-3xl overflow-hidden">
                   <table className="w-full">
-                    <thead className="bg-zinc-950 border-b border-zinc-800">
+                    <thead>
                       {table.getHeaderGroups().map(headerGroup => (
-                        <tr key={headerGroup.id}>
+                        <tr key={headerGroup.id} className="border-b border-white/10 bg-zinc-950/60">
                           {headerGroup.headers.map(header => (
                             <th
                               key={header.id}
-                              className="px-6 py-4 text-left text-sm font-medium text-zinc-400 cursor-pointer select-none"
+                              className="px-8 py-5 text-left text-xs font-medium text-zinc-400 tracking-wider cursor-pointer select-none"
                               onClick={header.column.getToggleSortingHandler()}
                             >
                               {flexRender(header.column.columnDef.header, header.getContext())}
                               {{
-                                asc: ' ↑',
-                                desc: ' ↓',
+                                asc: ' ↑', desc: ' ↓',
                               }[header.column.getIsSorted() as string] ?? null}
                             </th>
                           ))}
                         </tr>
                       ))}
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-white/10">
                       {table.getRowModel().rows.length > 0 ? (
                         table.getRowModel().rows.map(row => (
-                          <tr key={row.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
+                          <tr key={row.id} className="hover:bg-white/5 transition-colors group">
                             {row.getVisibleCells().map(cell => (
-                              <td key={cell.id} className="px-6 py-4 text-sm">
+                              <td key={cell.id} className="px-8 py-5 text-sm">
                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
                               </td>
                             ))}
@@ -420,7 +453,7 @@ export default function N314() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center text-zinc-400">No stocks found.</td>
+                          <td colSpan={6} className="px-8 py-16 text-center text-zinc-400">No stocks match your search.</td>
                         </tr>
                       )}
                     </tbody>
@@ -428,12 +461,16 @@ export default function N314() {
                 </div>
               )}
 
+              {/* Watchlist */}
               <div>
-                <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                  Watchlist <span className="text-sm text-zinc-400">({watchlist.length})</span>
-                </h3>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="text-2xl font-semibold tracking-tight">Your Watchlist <span className="text-sm text-zinc-500 font-normal">({watchlist.length})</span></div>
+                </div>
+
                 {watchlist.length === 0 ? (
-                  <div className="text-center py-8 text-zinc-400 border border-zinc-800 rounded-3xl">No stocks in watchlist. Star stocks from the table above.</div>
+                  <div className="border border-dashed border-white/20 rounded-3xl p-12 text-center text-zinc-400">
+                    No stocks in watchlist yet.<br />Click the Watch button on any stock above.
+                  </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {watchlist.map(symbol => {
@@ -441,18 +478,18 @@ export default function N314() {
                       if (!stock) return null;
                       const isPositive = (stock.regularMarketChangePercent || 0) >= 0;
                       return (
-                        <div key={symbol} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex justify-between items-center">
+                        <div key={symbol} className="bg-zinc-900 border border-white/10 rounded-3xl p-6 flex justify-between items-center group">
                           <div>
-                            <div className="font-mono font-semibold">{symbol}</div>
-                            <div className="text-sm text-zinc-400">{stock.shortName}</div>
+                            <div className="font-mono text-xl tracking-tight">{symbol}</div>
+                            <div className="text-sm text-zinc-400 mt-0.5 line-clamp-1">{stock.shortName}</div>
                           </div>
                           <div className="text-right">
-                            <div className="font-mono">{stock.regularMarketPrice?.toLocaleString('en-IN')}</div>
+                            <div className="font-mono text-lg">{stock.regularMarketPrice?.toLocaleString('en-IN')}</div>
                             <div className={`text-sm ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                               {isPositive ? '+' : ''}{stock.regularMarketChangePercent?.toFixed(2)}%
                             </div>
                           </div>
-                          <button onClick={() => toggleWatchlist(symbol)} className="ml-4 text-red-400 hover:text-red-500 text-xl leading-none">×</button>
+                          <button onClick={() => toggleWatchlist(symbol)} className="ml-4 text-red-400/70 hover:text-red-400 transition-colors text-2xl leading-none">×</button>
                         </div>
                       );
                     })}
@@ -462,90 +499,92 @@ export default function N314() {
             </div>
           )}
 
+          {/* AI CHAT */}
           {activeTab === 'ai' && (
             <div className="max-w-3xl mx-auto">
-              <div className="mb-6">
-                <h2 className="text-4xl font-semibold tracking-tight">AI Stock Advisor</h2>
-                <p className="text-zinc-400 mt-2">Powered by Google Gemini • Ask about any NSE stock or market trend</p>
+              <div className="mb-8">
+                <div className="text-5xl font-semibold tracking-[-2px]">AI Stock Advisor</div>
+                <p className="text-zinc-400 mt-3 text-lg">Powered by Google Gemini 2.0 Flash</p>
               </div>
 
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl flex flex-col h-[620px]">
-                <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+              <div className="bg-zinc-900 border border-white/10 rounded-3xl flex flex-col h-[620px] overflow-hidden">
+                <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
                   {messages.map((msg, index) => (
                     <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[82%] px-5 py-3.5 rounded-3xl text-[15px] leading-relaxed ${msg.role === 'user' ? 'bg-emerald-600' : 'bg-zinc-800'}`}>
+                      <div className={`max-w-[82%] px-6 py-4 rounded-3xl text-[15px] leading-relaxed ${msg.role === 'user' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 border border-white/10'}`}>
                         {msg.content}
                       </div>
                     </div>
                   ))}
                   {aiLoading && (
                     <div className="flex justify-start">
-                      <div className="bg-zinc-800 px-5 py-3.5 rounded-3xl flex items-center gap-2">
-                        <div className="flex gap-1">
+                      <div className="bg-zinc-800 border border-white/10 px-6 py-4 rounded-3xl flex items-center gap-3">
+                        <div className="flex gap-1.5">
                           <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
                           <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
                           <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
                         </div>
-                        <span className="text-xs text-zinc-400 ml-2">Thinking...</span>
+                        <span className="text-xs text-zinc-400">Thinking...</span>
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="p-4 border-t border-zinc-800">
+                <div className="p-6 border-t border-white/10 bg-zinc-950/60">
                   <div className="flex gap-3">
                     <input
                       type="text"
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder="Ask about Reliance, market outlook, or any stock..."
-                      className="flex-1 bg-zinc-950 border border-zinc-700 rounded-2xl px-5 py-3 focus:outline-none focus:border-emerald-500 text-[15px]"
+                      placeholder="Ask about any stock, sector, or market movement..."
+                      className="flex-1 bg-zinc-900 border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-emerald-500/60 text-[15px] placeholder:text-zinc-500"
                       disabled={aiLoading}
                     />
                     <button
                       onClick={sendMessage}
                       disabled={aiLoading || !input.trim()}
-                      className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 px-8 rounded-2xl font-medium transition-colors"
+                      className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-9 rounded-2xl font-medium transition-all disabled:opacity-50"
                     >Send</button>
                   </div>
-                  <p className="text-[10px] text-center text-zinc-500 mt-2">Not financial advice. For informational purposes only.</p>
+                  <div className="text-center text-[10px] text-zinc-500 mt-3 tracking-wider">NOT FINANCIAL ADVICE • FOR INFORMATIONAL PURPOSES ONLY</div>
                 </div>
               </div>
             </div>
           )}
 
+          {/* PORTFOLIO */}
           {activeTab === 'portfolio' && (
             <div>
-              <div className="flex justify-between items-center mb-8">
+              <div className="flex justify-between items-end mb-8">
                 <div>
-                  <h2 className="text-4xl font-semibold tracking-tight">My Portfolio</h2>
-                  <p className="text-zinc-400 mt-1">Real-time P&amp;L using live prices</p>
+                  <div className="text-5xl font-semibold tracking-[-2px]">My Portfolio</div>
+                  <p className="text-zinc-400 mt-2 text-lg">Real-time performance tracking</p>
                 </div>
-                <button onClick={clearPortfolio} className="px-4 py-2 bg-red-600/20 text-red-400 rounded-xl hover:bg-red-600/30 text-sm">
-                  Clear Portfolio
-                </button>
+                <button onClick={clearPortfolio} className="text-sm px-5 py-2.5 rounded-2xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">Clear All Holdings</button>
               </div>
 
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-8">
-                <div className="text-sm text-zinc-400">Total Portfolio Value</div>
-                <div className="text-5xl font-mono mt-2 text-emerald-400">₹{portfolioValue.toLocaleString('en-IN')}</div>
+              <div className="bg-zinc-900 border border-white/10 rounded-3xl p-9 mb-8">
+                <div className="text-sm text-zinc-400 tracking-wider">TOTAL PORTFOLIO VALUE</div>
+                <div className="text-7xl font-mono tracking-[-3.5px] mt-2 text-emerald-400">₹{portfolioValue.toLocaleString('en-IN')}</div>
               </div>
 
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8">
-                <h4 className="font-medium mb-4">Add New Holding</h4>
+              <div className="bg-zinc-900 border border-white/10 rounded-3xl p-8 mb-8">
+                <div className="font-medium mb-5 tracking-tight">Add New Holding</div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <input type="text" placeholder="Symbol (e.g. TCS.NS)" value={newSymbol} onChange={(e) => setNewSymbol(e.target.value)} className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5" />
-                  <input type="number" placeholder="Quantity" value={newQuantity} onChange={(e) => setNewQuantity(Number(e.target.value))} className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5" />
-                  <input type="number" placeholder="Avg Buy Price" value={newAvgPrice} onChange={(e) => setNewAvgPrice(Number(e.target.value))} className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5" />
-                  <button onClick={handleAddHolding} className="bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium">Add Holding</button>
+                  <input type="text" placeholder="Symbol (e.g. RELIANCE.NS)" value={newSymbol} onChange={(e) => setNewSymbol(e.target.value)} className="bg-zinc-950 border border-white/10 rounded-2xl px-5 py-3 focus:outline-none focus:border-emerald-500/50" />
+                  <input type="number" placeholder="Quantity" value={newQuantity} onChange={(e) => setNewQuantity(Number(e.target.value))} className="bg-zinc-950 border border-white/10 rounded-2xl px-5 py-3 focus:outline-none focus:border-emerald-500/50" />
+                  <input type="number" placeholder="Avg Buy Price (₹)" value={newAvgPrice} onChange={(e) => setNewAvgPrice(Number(e.target.value))} className="bg-zinc-950 border border-white/10 rounded-2xl px-5 py-3 focus:outline-none focus:border-emerald-500/50" />
+                  <button onClick={handleAddHolding} className="bg-white text-black hover:bg-zinc-200 active:bg-zinc-300 rounded-2xl font-medium transition-colors">Add to Portfolio</button>
                 </div>
               </div>
 
               {holdings.length === 0 ? (
-                <div className="text-center py-12 text-zinc-400 border border-zinc-800 rounded-3xl">Your portfolio is empty. Add holdings above.</div>
+                <div className="border border-dashed border-white/20 rounded-3xl p-16 text-center text-zinc-400">
+                  Your portfolio is empty.<br />Use the form above to add your first holding.
+                </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {holdings.map((holding, index) => {
                     const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
                     const currentValue = holding.quantity * currentPrice;
@@ -553,20 +592,23 @@ export default function N314() {
                     const gainLossPercent = ((currentPrice - holding.avgPrice) / holding.avgPrice) * 100;
 
                     return (
-                      <div key={index} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex justify-between items-center">
-                        <div>
-                          <div className="font-mono text-xl">{holding.symbol}</div>
-                          <div className="text-sm text-zinc-400 mt-1">
-                            {holding.quantity} shares @ avg ₹{holding.avgPrice} → Current ₹{currentPrice.toFixed(2)}
+                      <div key={index} className="bg-zinc-900 border border-white/10 rounded-3xl px-8 py-6 flex items-center justify-between group">
+                        <div className="flex items-center gap-6">
+                          <div>
+                            <div className="font-mono text-2xl tracking-tight">{holding.symbol}</div>
+                            <div className="text-sm text-zinc-400 mt-px">{holding.quantity} shares @ avg ₹{holding.avgPrice}</div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-xl font-mono">₹{currentValue.toFixed(0)}</div>
-                          <div className={`text-sm ${gainLoss >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {gainLoss >= 0 ? '+' : ''}₹{gainLoss.toFixed(0)} ({gainLossPercent.toFixed(1)}%)
+
+                        <div className="flex items-center gap-8 text-right">
+                          <div>
+                            <div className="font-mono text-xl tracking-tight">₹{currentValue.toFixed(0)}</div>
+                            <div className={`text-sm tabular-nums ${gainLoss >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {gainLoss >= 0 ? '+' : ''}₹{gainLoss.toFixed(0)} ({gainLossPercent.toFixed(1)}%)
+                            </div>
                           </div>
+                          <button onClick={() => removeHolding(holding.symbol)} className="opacity-40 hover:opacity-100 text-red-400 transition-all px-3 py-1 text-sm">Remove</button>
                         </div>
-                        <button onClick={() => removeHolding(holding.symbol)} className="ml-6 text-red-400 hover:text-red-500 text-sm">Remove</button>
                       </div>
                     );
                   })}
