@@ -40,6 +40,10 @@ export default function N314() {
   const [screenerData, setScreenerData] = useState<MarketQuote[]>([]);
   const [screenerLoading, setScreenerLoading] = useState(false);
 
+  // Screener table state
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [sorting, setSorting] = useState<SortingState>([]);
+
   const [watchlist, setWatchlist] = useState<string[]>([]);
 
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([
@@ -136,7 +140,7 @@ export default function N314() {
     if (activeTab === 'screener' && screenerData.length === 0) {
       fetchScreenerData();
     }
-  }, [activeTab]);
+  }, [activeTab, screenerData.length]);
 
   const toggleWatchlist = (symbol: string) => {
     setWatchlist(prev => 
@@ -146,7 +150,7 @@ export default function N314() {
     );
   };
 
-  const isInWatchlist = (symbol: string) => watchlist.includes(symbol);
+  const isInWatchlist = useCallback((symbol: string) => watchlist.includes(symbol), [watchlist]);
 
   const portfolioValue = holdings.reduce((sum, holding) => {
     const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
@@ -246,7 +250,7 @@ export default function N314() {
         );
       },
     }),
-  ], [watchlist]);
+  ], [isInWatchlist]);
 
   const table = useReactTable({
     data: screenerData,
