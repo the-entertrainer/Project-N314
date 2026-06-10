@@ -34,7 +34,7 @@ interface UseLiveChartDataOptions {
 export function useLiveChartData({
   symbol,
   enabled = true,
-  intervalMs = 8000,
+  intervalMs = 3000,
   maxPoints = 78,
 }: UseLiveChartDataOptions) {
   const [points, setPoints] = useState<LiveChartPoint[]>([]);

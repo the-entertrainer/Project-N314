@@ -146,7 +146,7 @@ export default function N314() {
     };
     loadData();
 
-    const pollMs = activeTab === 'overview' ? 8000 : 30000;
+    const pollMs = activeTab === 'overview' ? 3000 : 30000;
     const interval = setInterval(() => {
       fetchMarketData();
       fetchPortfolioPrices();

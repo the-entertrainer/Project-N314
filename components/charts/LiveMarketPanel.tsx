@@ -50,7 +50,7 @@ export default function LiveMarketPanel({
   const { points, quote, lastUpdated, isLoading, tick } = useLiveChartData({
     symbol,
     enabled: view === 'live',
-    intervalMs: 8000,
+    intervalMs: 3000,
   });
 
   const livePrice = quote?.regularMarketPrice ?? points[points.length - 1]?.close;

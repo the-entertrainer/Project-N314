@@ -102,7 +102,7 @@ function ReportView({ report }: { report: AnalysisReport }) {
   const { points: livePoints, quote: liveQuote, tick, lastUpdated } = useLiveChartData({
     symbol,
     enabled: true,
-    intervalMs: 8000,
+    intervalMs: 3000,
   });
 
   const quote = liveQuote
