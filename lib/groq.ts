@@ -130,6 +130,20 @@ export async function callGroqPortfolio(portfolioPayload: string, newsPayload: s
   return groqRequest(body, 3);
 }
 
+export async function callGroqPower(systemPrompt: string, userPayload: string, maxTokens = 500) {
+  const body = {
+    model: FAST_MODEL,
+    temperature: 0.15,
+    max_tokens: maxTokens,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPayload },
+    ],
+  };
+  return groqRequest(body, 3);
+}
+
 export const ANALYSIS_SCHEMA = {
   type: 'object',
   properties: {

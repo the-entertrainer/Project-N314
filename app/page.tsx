@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import ThreeDOrb from '../components/ThreeDOrb';
-import AppShell, { AppTab } from '../components/AppShell';
+import AppShell from '../components/AppShell';
 import IntelligenceReport from '../components/IntelligenceReport';
 import LiveMarketPanel from '../components/charts/LiveMarketPanel';
 import LivePriceTicker from '../components/LivePriceTicker';
 import Screener from '../components/Screener';
 import Portfolio from '../components/Portfolio';
+import PowerApps from '../components/PowerApps';
 import { usePortfolioBootstrap } from '../hooks/usePortfolioBootstrap';
+import { useAppNavigation } from '../hooks/useAppNavigation';
 
 interface MarketQuote {
   symbol: string;
@@ -34,8 +36,8 @@ function formatIndexLabel(symbol?: string) {
   return labels[symbol || ''] || symbol?.replace('^', '') || '—';
 }
 
-export default function N314() {
-  const [activeTab, setActiveTab] = useState<AppTab>('overview');
+function N314App() {
+  const { activeTab, activePowerPanel, setActiveTab, setActivePowerPanel } = useAppNavigation();
   const [marketData, setMarketData] = useState<MarketQuote[]>([]);
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -172,7 +174,19 @@ export default function N314() {
         {activeTab === 'ai' && <IntelligenceReport />}
 
         {activeTab === 'portfolio' && <Portfolio />}
+
+        {activeTab === 'powerapps' && (
+          <PowerApps activePanel={activePowerPanel} onPanelChange={setActivePowerPanel} />
+        )}
       </AppShell>
     </>
+  );
+}
+
+export default function N314() {
+  return (
+    <Suspense fallback={null}>
+      <N314App />
+    </Suspense>
   );
 }

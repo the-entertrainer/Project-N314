@@ -15,15 +15,16 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 5,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: 'cover',
   themeColor: '#09090b',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="app-gradient text-zinc-100 min-h-dvh antialiased">
+    <html lang="en" className="dark overflow-x-hidden">
+      <body className="app-gradient text-zinc-100 h-[100dvh] w-full max-w-[100vw] overflow-x-hidden overflow-y-hidden antialiased">
         {children}
       </body>
     </html>
