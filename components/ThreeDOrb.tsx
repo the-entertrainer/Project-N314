@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Stars } from '@react-three/drei';
+import { Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { useRef } from 'react';
 
@@ -28,9 +28,19 @@ function Orb() {
   );
 }
 
-export default function ThreeDOrb() {
+interface ThreeDOrbProps {
+  size?: 'sm' | 'md' | 'lg';
+}
+
+const sizeMap = {
+  sm: 'w-10 h-10',
+  md: 'w-14 h-14',
+  lg: 'w-20 h-20',
+};
+
+export default function ThreeDOrb({ size = 'md' }: ThreeDOrbProps) {
   return (
-    <div className="w-16 h-16">
+    <div className={`${sizeMap[size]} shrink-0`}>
       <Canvas camera={{ position: [0, 0, 4] }} style={{ background: 'transparent' }}>
         <ambientLight intensity={0.6} />
         <pointLight position={[10, 10, 10]} intensity={1.2} />

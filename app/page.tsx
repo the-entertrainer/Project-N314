@@ -11,9 +11,21 @@ import {
   createColumnHelper,
   SortingState,
 } from '@tanstack/react-table';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  CartesianGrid,
+} from 'recharts';
+import { ArrowDown, ArrowUp, Minus, Send, Star, Trash2, X } from 'lucide-react';
 import { usePortfolioStore } from '../store/portfolioStore';
 import ThreeDOrb from '../components/ThreeDOrb';
+import AppShell, { AppTab } from '../components/AppShell';
 
 interface MarketQuote {
   symbol: string;
@@ -29,37 +41,69 @@ interface HistoricalDataPoint {
   volume?: number;
 }
 
+const WATCHLIST_KEY = 'n314-watchlist';
 const columnHelper = createColumnHelper<MarketQuote>();
 
+function formatIndexLabel(symbol?: string) {
+  const labels: Record<string, string> = {
+    '^NSEI': 'NIFTY 50',
+    '^NSEBANK': 'BANK NIFTY',
+    '^BSESN': 'SENSEX',
+  };
+  return labels[symbol || ''] || symbol?.replace('^', '') || '—';
+}
+
+function formatChartDate(date: string) {
+  const d = new Date(date);
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
 export default function N314() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'screener' | 'ai' | 'portfolio'>('overview');
+  const [activeTab, setActiveTab] = useState<AppTab>('overview');
   const [marketData, setMarketData] = useState<MarketQuote[]>([]);
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
   const [stockPrices, setStockPrices] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [screenerData, setScreenerData] = useState<MarketQuote[]>([]);
   const [screenerLoading, setScreenerLoading] = useState(false);
-
   const [globalFilter, setGlobalFilter] = useState('');
   const [sorting, setSorting] = useState<SortingState>([]);
-
   const [watchlist, setWatchlist] = useState<string[]>([]);
-
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([
-    { role: 'assistant', content: "Hello! I'm your N314 AI Stock Advisor. Ask me about any NSE stock, market trends, or your portfolio." }
+    {
+      role: 'assistant',
+      content:
+        "Hello! I'm your N314 AI Stock Advisor. Ask me about any NSE stock, market trends, or your portfolio.",
+    },
   ]);
   const [input, setInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [showPreloader, setShowPreloader] = useState(true);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const { holdings, addHolding, removeHolding, clearPortfolio } = usePortfolioStore();
 
-  const [showPreloader, setShowPreloader] = useState(true);
+  const [newSymbol, setNewSymbol] = useState('');
+  const [newQuantity, setNewQuantity] = useState('1');
+  const [newAvgPrice, setNewAvgPrice] = useState('');
 
   useEffect(() => {
     const timer = setTimeout(() => setShowPreloader(false), 1200);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(WATCHLIST_KEY);
+      if (saved) setWatchlist(JSON.parse(saved));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlist));
+  }, [watchlist]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -101,14 +145,17 @@ export default function N314() {
   };
 
   const fetchPortfolioPrices = useCallback(async () => {
-    if (holdings.length === 0) return;
-    const symbols = holdings.map(h => h.symbol).join(',');
+    if (holdings.length === 0) {
+      setStockPrices({});
+      return;
+    }
+    const symbols = holdings.map((h) => h.symbol).join(',');
     try {
-      const res = await fetch(`/api/market?symbols=${symbols}`);
+      const res = await fetch(`/api/market?symbols=${encodeURIComponent(symbols)}`);
       const json = await res.json();
       if (json.success && json.data) {
         const priceMap: Record<string, number> = {};
-        json.data.forEach((quote: any) => {
+        json.data.forEach((quote: MarketQuote) => {
           if (quote.symbol && quote.regularMarketPrice) {
             priceMap[quote.symbol] = quote.regularMarketPrice;
           }
@@ -136,16 +183,18 @@ export default function N314() {
   }, [fetchPortfolioPrices]);
 
   useEffect(() => {
+    fetchPortfolioPrices();
+  }, [fetchPortfolioPrices]);
+
+  useEffect(() => {
     if (activeTab === 'screener' && screenerData.length === 0) {
       fetchScreenerData();
     }
   }, [activeTab, screenerData.length]);
 
   const toggleWatchlist = (symbol: string) => {
-    setWatchlist(prev => 
-      prev.includes(symbol) 
-        ? prev.filter(s => s !== symbol) 
-        : [...prev, symbol]
+    setWatchlist((prev) =>
+      prev.includes(symbol) ? prev.filter((s) => s !== symbol) : [...prev, symbol]
     );
   };
 
@@ -153,33 +202,35 @@ export default function N314() {
 
   const portfolioValue = holdings.reduce((sum, holding) => {
     const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
-    return sum + (holding.quantity * currentPrice);
+    return sum + holding.quantity * currentPrice;
   }, 0);
 
-  const addSampleHolding = () => {
-    addHolding({ symbol: 'RELIANCE.NS', quantity: 10, avgPrice: 2450 });
-  };
-
-  const [newSymbol, setNewSymbol] = useState('');
-  const [newQuantity, setNewQuantity] = useState(1);
-  const [newAvgPrice, setNewAvgPrice] = useState(0);
+  const totalInvested = holdings.reduce(
+    (sum, holding) => sum + holding.quantity * holding.avgPrice,
+    0
+  );
+  const totalGainLoss = portfolioValue - totalInvested;
+  const totalGainLossPercent = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
 
   const handleAddHolding = () => {
-    if (!newSymbol.trim() || newQuantity <= 0 || newAvgPrice <= 0) return;
+    const qty = parseFloat(newQuantity);
+    const price = parseFloat(newAvgPrice);
+    if (!newSymbol.trim() || qty <= 0 || price <= 0) return;
     addHolding({
       symbol: newSymbol.toUpperCase().trim(),
-      quantity: newQuantity,
-      avgPrice: newAvgPrice,
+      quantity: qty,
+      avgPrice: price,
     });
     setNewSymbol('');
-    setNewQuantity(1);
-    setNewAvgPrice(0);
+    setNewQuantity('1');
+    setNewAvgPrice('');
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || aiLoading) return;
-    const userMessage = { role: 'user' as const, content: input.trim() };
-    setMessages(prev => [...prev, userMessage]);
+    const trimmed = input.trim();
+    if (!trimmed || aiLoading) return;
+    const userMessage = { role: 'user' as const, content: trimmed };
+    setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setAiLoading(true);
 
@@ -187,16 +238,19 @@ export default function N314() {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: input.trim() }),
+        body: JSON.stringify({ prompt: trimmed }),
       });
       const data = await res.json();
       if (data.success) {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+        setMessages((prev) => [...prev, { role: 'assistant', content: data.response }]);
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.error || 'Sorry, something went wrong.' }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: data.error || 'Sorry, something went wrong.' },
+        ]);
       }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Failed to connect to AI.' }]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: 'Failed to connect to AI.' }]);
     } finally {
       setAiLoading(false);
     }
@@ -209,48 +263,70 @@ export default function N314() {
     }
   };
 
-  const columns = useMemo(() => [
-    columnHelper.accessor('symbol', {
-      header: 'Symbol',
-      cell: info => <span className="font-mono font-semibold tracking-tight">{info.getValue()}</span>,
-    }),
-    columnHelper.accessor('shortName', {
-      header: 'Name',
-      cell: info => <span className="text-zinc-400">{info.getValue() || '—'}</span>,
-    }),
-    columnHelper.accessor('regularMarketPrice', {
-      header: 'Price',
-      cell: info => <span className="font-mono">{info.getValue()?.toLocaleString('en-IN') || '—'}</span>,
-    }),
-    columnHelper.accessor('regularMarketChangePercent', {
-      header: 'Change',
-      cell: info => {
-        const val = info.getValue();
-        if (val === undefined) return <span className="text-zinc-500">—</span>;
-        const positive = val >= 0;
-        return <span className={positive ? 'text-emerald-400' : 'text-red-400'}>{positive ? '+' : ''}{val.toFixed(2)}%</span>;
-      },
-    }),
-    columnHelper.accessor('regularMarketVolume', {
-      header: 'Volume',
-      cell: info => info.getValue() ? <span className="text-zinc-400">{(info.getValue()! / 1_000_000).toFixed(1)}M</span> : <span className="text-zinc-500">—</span>,
-    }),
-    columnHelper.accessor('symbol', {
-      id: 'watchlist',
-      header: '',
-      cell: info => {
-        const symbol = info.getValue();
-        return (
-          <button 
-            onClick={() => toggleWatchlist(symbol)}
-            className={`px-3.5 py-1.5 text-xs rounded-full transition-all active:scale-95 ${isInWatchlist(symbol) ? 'bg-emerald-500 text-black font-medium' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400'}`}
-          >
-            {isInWatchlist(symbol) ? '★ Watching' : '☆ Watch'}
-          </button>
-        );
-      },
-    }),
-  ], [isInWatchlist]);
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor('symbol', {
+        header: 'Symbol',
+        cell: (info) => (
+          <span className="font-mono font-semibold tracking-tight">{info.getValue()}</span>
+        ),
+      }),
+      columnHelper.accessor('shortName', {
+        header: 'Name',
+        cell: (info) => <span className="text-zinc-400">{info.getValue() || '—'}</span>,
+      }),
+      columnHelper.accessor('regularMarketPrice', {
+        header: 'Price',
+        cell: (info) => (
+          <span className="font-mono">₹{info.getValue()?.toLocaleString('en-IN') || '—'}</span>
+        ),
+      }),
+      columnHelper.accessor('regularMarketChangePercent', {
+        header: 'Change',
+        cell: (info) => {
+          const val = info.getValue();
+          if (val === undefined) return <span className="text-zinc-500">—</span>;
+          const positive = val >= 0;
+          return (
+            <span className={positive ? 'text-emerald-400' : 'text-red-400'}>
+              {positive ? '+' : ''}
+              {val.toFixed(2)}%
+            </span>
+          );
+        },
+      }),
+      columnHelper.accessor('regularMarketVolume', {
+        header: 'Volume',
+        cell: (info) =>
+          info.getValue() ? (
+            <span className="text-zinc-400">{(info.getValue()! / 1_000_000).toFixed(1)}M</span>
+          ) : (
+            <span className="text-zinc-500">—</span>
+          ),
+      }),
+      columnHelper.accessor('symbol', {
+        id: 'watchlist',
+        header: '',
+        cell: (info) => {
+          const symbol = info.getValue();
+          const watching = isInWatchlist(symbol);
+          return (
+            <button
+              onClick={() => toggleWatchlist(symbol)}
+              className={`px-3 py-1.5 text-xs rounded-full transition-all active:scale-95 ${
+                watching
+                  ? 'bg-emerald-500 text-black font-medium'
+                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400'
+              }`}
+            >
+              {watching ? '★ Watching' : '☆ Watch'}
+            </button>
+          );
+        },
+      }),
+    ],
+    [isInWatchlist]
+  );
 
   const table = useReactTable({
     data: screenerData,
@@ -263,209 +339,548 @@ export default function N314() {
     getFilteredRowModel: getFilteredRowModel(),
   });
 
+  const filteredRows = table.getRowModel().rows;
+
+  const chartTooltipStyle = {
+    backgroundColor: '#18181b',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '12px',
+    fontSize: '12px',
+  };
+
   return (
     <>
       <AnimatePresence>
         {showPreloader && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.6, ease: 'easeOut' } }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950">
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950"
+          >
             <div className="text-center">
               <div className="flex justify-center mb-5">
-                <ThreeDOrb />
+                <ThreeDOrb size="lg" />
               </div>
-              <div>
-                <div className="text-[42px] font-semibold tracking-[-2px] leading-none">N314</div>
-                <div className="text-emerald-400 text-[10px] tracking-[2.5px] mt-1.5">STOCK INTELLIGENCE</div>
+              <div className="text-4xl sm:text-5xl font-semibold tracking-tight">N314</div>
+              <div className="text-emerald-400 text-[10px] tracking-[0.25em] mt-2 uppercase">
+                Stock Intelligence
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="min-h-screen bg-zinc-950 text-white">
-        {/* Mobile-friendly Header */}
-        <header className="border-b border-white/10 bg-zinc-950/95 backdrop-blur-xl sticky top-0 z-50 safe-area-top">
-          <div className="px-5 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <ThreeDOrb />
-              <div>
-                <div className="text-[22px] font-semibold tracking-[-1px] leading-none">N314</div>
-                <div className="text-[9px] text-zinc-500 tracking-[1px] -mt-px">STOCK INTELLIGENCE</div>
-              </div>
+      <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
+        {/* OVERVIEW */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6 lg:space-y-8">
+            <div className="lg:hidden">
+              <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Market Overview</h2>
+              <p className="text-zinc-400 mt-1 text-sm sm:text-base">
+                Real-time insights across major Indian indices
+              </p>
             </div>
 
-            <div className="flex items-center gap-2 text-[10px]">
-              <div className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-1.5">
-                <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
-                LIVE
+            {isLoading && marketData.length === 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="glass-card p-6 h-36 animate-pulse" />
+                ))}
               </div>
-            </div>
-          </div>
-
-          {/* Modern Tab Bar - Mobile First */}
-          <div className="px-2 pb-3">
-            <div className="flex bg-zinc-900/80 rounded-3xl p-1 border border-white/10 overflow-x-auto no-scrollbar">
-              {(['overview', 'screener', 'ai', 'portfolio'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 min-w-[78px] py-2 text-sm font-medium rounded-[20px] transition-all capitalize ${activeTab === tab ? 'bg-white text-black shadow' : 'text-zinc-400 active:bg-white/5'}`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </div>
-        </header>
-
-        <main className="px-5 py-6 pb-10">
-          {/* OVERVIEW */}
-          {activeTab === 'overview' && (
-            <>
-              <div className="mb-8">
-                <div className="text-[34px] font-semibold tracking-[-1.5px] leading-none">Market Overview</div>
-                <p className="text-zinc-400 mt-2 text-[15px]">Real-time insights across major Indian indices</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {marketData.map((quote, i) => {
+                  const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
+                  return (
+                    <div
+                      key={i}
+                      className="glass-card p-5 sm:p-6 hover:border-emerald-500/20 transition-colors"
+                    >
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="min-w-0">
+                          <div className="text-xs text-zinc-500 tracking-wider uppercase truncate">
+                            {formatIndexLabel(quote.symbol)}
+                          </div>
+                          <div className="text-3xl sm:text-4xl font-mono tracking-tight mt-1 tabular-nums">
+                            {quote.regularMarketPrice?.toLocaleString('en-IN')}
+                          </div>
+                        </div>
+                        <div
+                          className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+                            isPositive
+                              ? 'bg-emerald-500/10 text-emerald-400'
+                              : 'bg-red-500/10 text-red-400'
+                          }`}
+                        >
+                          {isPositive ? (
+                            <ArrowUp className="w-3 h-3" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3" />
+                          )}
+                          {isPositive ? '+' : ''}
+                          {quote.regularMarketChangePercent?.toFixed(2)}%
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            )}
 
-              {isLoading && marketData.length === 0 ? (
-                <div className="grid grid-cols-1 gap-4 mb-10">
-                  {[1,2,3].map(i => <div key={i} className="bg-zinc-900 border border-white/10 rounded-3xl p-7 h-36 animate-pulse" />)}
+            <div>
+              <h3 className="text-lg sm:text-xl font-semibold tracking-tight mb-4">
+                NIFTY 50 · 30 Day Trend
+              </h3>
+              {historicalData.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="glass-card p-4 sm:p-5">
+                    <div className="text-xs text-zinc-400 mb-3 flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                      Closing Price
+                    </div>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart data={historicalData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                        <XAxis
+                          dataKey="date"
+                          stroke="#3f3f46"
+                          fontSize={10}
+                          tickFormatter={formatChartDate}
+                          interval="preserveStartEnd"
+                          minTickGap={24}
+                        />
+                        <YAxis
+                          stroke="#3f3f46"
+                          fontSize={10}
+                          domain={['auto', 'auto']}
+                          tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                          width={42}
+                        />
+                        <Tooltip contentStyle={chartTooltipStyle} />
+                        <Line
+                          type="monotone"
+                          dataKey="close"
+                          stroke="#10b981"
+                          strokeWidth={2.5}
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="glass-card p-4 sm:p-5">
+                    <div className="text-xs text-zinc-400 mb-3 flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                      Volume
+                    </div>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={historicalData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                        <XAxis
+                          dataKey="date"
+                          stroke="#3f3f46"
+                          fontSize={10}
+                          tickFormatter={formatChartDate}
+                          interval="preserveStartEnd"
+                          minTickGap={24}
+                        />
+                        <YAxis
+                          stroke="#3f3f46"
+                          fontSize={10}
+                          tickFormatter={(v) => `${(v / 1e6).toFixed(0)}M`}
+                          width={42}
+                        />
+                        <Tooltip contentStyle={chartTooltipStyle} />
+                        <Bar dataKey="volume" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 mb-10">
-                  {marketData.map((quote, i) => {
-                    const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
+                <div className="glass-card p-12 text-center text-zinc-400 text-sm">
+                  Loading chart data...
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* SCREENER */}
+        {activeTab === 'screener' && (
+          <div className="space-y-6">
+            <div className="lg:hidden">
+              <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Stock Screener</h2>
+              <p className="text-zinc-400 mt-1 text-sm">Find and track opportunities</p>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Search stocks..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="input-field"
+            />
+
+            {screenerLoading ? (
+              <div className="text-center py-16 text-zinc-400">Loading data...</div>
+            ) : (
+              <>
+                {/* Mobile card list */}
+                <div className="md:hidden space-y-3">
+                  {filteredRows.length > 0 ? (
+                    filteredRows.map((row) => {
+                      const stock = row.original;
+                      const isPositive = (stock.regularMarketChangePercent || 0) >= 0;
+                      const watching = isInWatchlist(stock.symbol);
+                      return (
+                        <div key={row.id} className="glass-card p-4">
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="min-w-0">
+                              <div className="font-mono font-semibold">{stock.symbol}</div>
+                              <div className="text-xs text-zinc-400 truncate">
+                                {stock.shortName || '—'}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => toggleWatchlist(stock.symbol)}
+                              className={`shrink-0 p-2 rounded-xl transition-colors ${
+                                watching ? 'text-emerald-400 bg-emerald-500/10' : 'text-zinc-500'
+                              }`}
+                            >
+                              <Star className={`w-4 h-4 ${watching ? 'fill-current' : ''}`} />
+                            </button>
+                          </div>
+                          <div className="flex justify-between items-end mt-3 pt-3 border-t border-white/10">
+                            <div className="font-mono text-lg">
+                              ₹{stock.regularMarketPrice?.toLocaleString('en-IN') || '—'}
+                            </div>
+                            <div
+                              className={`text-sm font-medium ${
+                                isPositive ? 'text-emerald-400' : 'text-red-400'
+                              }`}
+                            >
+                              {isPositive ? '+' : ''}
+                              {stock.regularMarketChangePercent?.toFixed(2) ?? '—'}%
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="glass-card p-10 text-center text-zinc-400">No results found.</div>
+                  )}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden md:block glass-card overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm min-w-[640px]">
+                      <thead className="bg-zinc-950/60 border-b border-white/10">
+                        {table.getHeaderGroups().map((headerGroup) => (
+                          <tr key={headerGroup.id}>
+                            {headerGroup.headers.map((header) => (
+                              <th
+                                key={header.id}
+                                onClick={header.column.getToggleSortingHandler()}
+                                className="px-5 py-4 text-left text-xs font-medium text-zinc-400 tracking-wider cursor-pointer hover:text-zinc-200"
+                              >
+                                {flexRender(header.column.columnDef.header, header.getContext())}
+                                {{ asc: ' ↑', desc: ' ↓' }[header.column.getIsSorted() as string] ??
+                                  null}
+                              </th>
+                            ))}
+                          </tr>
+                        ))}
+                      </thead>
+                      <tbody className="divide-y divide-white/10">
+                        {filteredRows.length > 0 ? (
+                          filteredRows.map((row) => (
+                            <tr key={row.id} className="hover:bg-white/5 transition-colors">
+                              {row.getVisibleCells().map((cell) => (
+                                <td key={cell.id} className="px-5 py-4">
+                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                </td>
+                              ))}
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={6} className="px-5 py-14 text-center text-zinc-400">
+                              No results found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Watchlist ({watchlist.length})</h3>
+              {watchlist.length === 0 ? (
+                <div className="border border-dashed border-white/20 rounded-3xl p-8 text-center text-sm text-zinc-400">
+                  Tap ★ on any stock to add it here.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {watchlist.map((symbol) => {
+                    const stock = screenerData.find((s) => s.symbol === symbol);
+                    if (!stock) return null;
+                    const isPositive = (stock.regularMarketChangePercent || 0) >= 0;
                     return (
-                      <div key={i} className="bg-zinc-900 border border-white/10 rounded-3xl p-6 active:scale-[0.985] transition-transform">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="text-xs text-zinc-500 tracking-wider">{quote.symbol?.replace('^', '')}</div>
-                            <div className="text-[42px] font-mono tracking-[-2px] mt-1 tabular-nums">{quote.regularMarketPrice?.toLocaleString('en-IN')}</div>
+                      <div
+                        key={symbol}
+                        className="glass-card p-4 flex justify-between items-center gap-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="font-mono font-semibold">{symbol}</div>
+                          <div className="text-xs text-zinc-400 truncate">{stock.shortName}</div>
+                          <div className="font-mono mt-1">
+                            ₹{stock.regularMarketPrice?.toLocaleString('en-IN')}
                           </div>
-                          <div className={`px-3 py-1 rounded-full text-xs font-medium mt-1.5 ${isPositive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                            {isPositive ? '+' : ''}{quote.regularMarketChangePercent?.toFixed(2)}%
-                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            className={`text-sm font-medium ${
+                              isPositive ? 'text-emerald-400' : 'text-red-400'
+                            }`}
+                          >
+                            {isPositive ? '+' : ''}
+                            {stock.regularMarketChangePercent?.toFixed(2)}%
+                          </span>
+                          <button
+                            onClick={() => toggleWatchlist(symbol)}
+                            className="p-2 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                     );
                   })}
                 </div>
               )}
+            </div>
+          </div>
+        )}
 
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-2xl font-semibold tracking-tight">NIFTY 50 • 30 Day Trend</div>
-                </div>
-                {historicalData.length > 0 ? (
-                  <div className="space-y-4">
-                    <div className="bg-zinc-900 border border-white/10 rounded-3xl p-5">
-                      <div className="text-xs text-zinc-400 mb-3 flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> Closing Price
-                      </div>
-                      <ResponsiveContainer width="100%" height={220}>
-                        <LineChart data={historicalData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                          <XAxis dataKey="date" stroke="#3f3f46" fontSize={10} />
-                          <YAxis stroke="#3f3f46" fontSize={10} domain={['auto', 'auto']} />
-                          <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none', borderRadius: '10px' }} />
-                          <Line type="monotone" dataKey="close" stroke="#10b981" strokeWidth={3} dot={false} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
+        {/* AI */}
+        {activeTab === 'ai' && (
+          <div className="h-full flex flex-col max-w-4xl mx-auto w-full">
+            <div className="lg:hidden mb-4">
+              <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">AI Stock Advisor</h2>
+              <p className="text-zinc-400 text-sm mt-1">Google Gemini 2.0 Flash</p>
+            </div>
 
-                    <div className="bg-zinc-900 border border-white/10 rounded-3xl p-5">
-                      <div className="text-xs text-zinc-400 mb-3 flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" /> Volume
-                      </div>
-                      <ResponsiveContainer width="100%" height={180}>
-                        <BarChart data={historicalData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                          <XAxis dataKey="date" stroke="#3f3f46" fontSize={10} />
-                          <YAxis stroke="#3f3f46" fontSize={10} />
-                          <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none', borderRadius: '10px' }} />
-                          <Bar dataKey="volume" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
+            <div className="glass-card flex flex-col flex-1 min-h-[420px] sm:min-h-[500px] lg:min-h-[calc(100dvh-12rem)]">
+              <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                {messages.map((msg, index) => (
+                  <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                    <div
+                      className={`max-w-[90%] sm:max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                        msg.role === 'user'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-zinc-800/80 border border-white/10'
+                      }`}
+                    >
+                      {msg.content}
                     </div>
                   </div>
-                ) : <div className="bg-zinc-900 border border-white/10 rounded-3xl p-14 text-center text-zinc-400 text-sm">Loading chart data...</div>}
+                ))}
+                {aiLoading && (
+                  <div className="flex items-center gap-2 text-xs text-zinc-400 px-1">
+                    <div className="flex gap-1">
+                      <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" />
+                      <span
+                        className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"
+                        style={{ animationDelay: '0.15s' }}
+                      />
+                      <span
+                        className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"
+                        style={{ animationDelay: '0.3s' }}
+                      />
+                    </div>
+                    Thinking...
+                  </div>
+                )}
               </div>
-            </>
-          )}
 
-          {/* SCREENER */}
-          {activeTab === 'screener' && (
-            <div>
-              <div className="mb-6">
-                <div className="text-[32px] font-semibold tracking-[-1.5px]">Stock Screener</div>
-                <p className="text-zinc-400 mt-1">Find and track opportunities</p>
-              </div>
-
-              <input
-                type="text"
-                placeholder="Search stocks..."
-                value={globalFilter}
-                onChange={(e) => setGlobalFilter(e.target.value)}
-                className="w-full bg-zinc-900 border border-white/10 rounded-2xl px-5 py-3.5 mb-5 focus:outline-none focus:border-emerald-500/60"
-              />
-
-              {screenerLoading ? (
-                <div className="text-center py-16 text-zinc-400">Loading data...</div>
-              ) : (
-                <div className="bg-zinc-900 border border-white/10 rounded-3xl overflow-hidden mb-8">
-                  <table className="w-full text-sm">
-                    <thead className="bg-zinc-950/60 border-b border-white/10">
-                      {table.getHeaderGroups().map(headerGroup => (
-                        <tr key={headerGroup.id}>
-                          {headerGroup.headers.map(header => (
-                            <th key={header.id} onClick={header.column.getToggleSortingHandler()} className="px-5 py-4 text-left text-xs font-medium text-zinc-400 tracking-wider cursor-pointer">
-                              {flexRender(header.column.columnDef.header, header.getContext())}
-                              {{
-                                asc: ' ↑', desc: ' ↓',
-                              }[header.column.getIsSorted() as string] ?? null}
-                            </th>
-                          ))}
-                        </tr>
-                      ))}
-                    </thead>
-                    <tbody className="divide-y divide-white/10">
-                      {table.getRowModel().rows.length > 0 ? table.getRowModel().rows.map(row => (
-                        <tr key={row.id} className="active:bg-white/5">
-                          {row.getVisibleCells().map(cell => (
-                            <td key={cell.id} className="px-5 py-4">{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
-                          ))}
-                        </tr>
-                      )) : (
-                        <tr><td colSpan={6} className="px-5 py-14 text-center text-zinc-400">No results found.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
+              <div className="p-3 sm:p-4 border-t border-white/10">
+                <div className="flex gap-2">
+                  <input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask anything about the market..."
+                    className="input-field flex-1"
+                    disabled={aiLoading}
+                  />
+                  <button
+                    onClick={sendMessage}
+                    disabled={aiLoading || !input.trim()}
+                    className="btn-primary px-4 sm:px-5 flex items-center gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span className="hidden sm:inline">Send</span>
+                  </button>
                 </div>
-              )}
+              </div>
+            </div>
+          </div>
+        )}
 
+        {/* PORTFOLIO */}
+        {activeTab === 'portfolio' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center lg:hidden">
               <div>
-                <div className="text-xl font-semibold tracking-tight mb-4">Watchlist ({watchlist.length})</div>
-                {watchlist.length === 0 ? (
-                  <div className="border border-dashed border-white/20 rounded-3xl p-9 text-center text-sm text-zinc-400">Tap ★ on any stock to add it here.</div>
+                <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Portfolio</h2>
+              </div>
+              {holdings.length > 0 && (
+                <button
+                  onClick={clearPortfolio}
+                  className="text-xs px-3 py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              <div className="lg:col-span-2 space-y-4">
+                <div className="glass-card p-5 sm:p-6">
+                  <div className="text-xs text-zinc-400 tracking-widest uppercase">Total Value</div>
+                  <div className="text-4xl sm:text-5xl font-mono tracking-tight mt-1 text-emerald-400">
+                    ₹{portfolioValue.toLocaleString('en-IN')}
+                  </div>
+                  {holdings.length > 0 && (
+                    <div
+                      className={`flex items-center gap-1.5 mt-2 text-sm font-medium ${
+                        totalGainLoss >= 0 ? 'text-emerald-400' : 'text-red-400'
+                      }`}
+                    >
+                      {totalGainLoss >= 0 ? (
+                        <ArrowUp className="w-4 h-4" />
+                      ) : (
+                        <ArrowDown className="w-4 h-4" />
+                      )}
+                      {totalGainLoss >= 0 ? '+' : ''}₹{totalGainLoss.toLocaleString('en-IN')} (
+                      {totalGainLossPercent.toFixed(1)}%)
+                    </div>
+                  )}
+                </div>
+
+                <div className="glass-card p-5 sm:p-6">
+                  <h3 className="text-sm font-medium mb-4">Add Holding</h3>
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      placeholder="Symbol (e.g. RELIANCE.NS)"
+                      value={newSymbol}
+                      onChange={(e) => setNewSymbol(e.target.value)}
+                      className="input-field"
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="number"
+                        placeholder="Quantity"
+                        value={newQuantity}
+                        onChange={(e) => setNewQuantity(e.target.value)}
+                        className="input-field"
+                        min="1"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Avg Price (₹)"
+                        value={newAvgPrice}
+                        onChange={(e) => setNewAvgPrice(e.target.value)}
+                        className="input-field"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                    <button onClick={handleAddHolding} className="btn-secondary w-full py-3">
+                      Add Holding
+                    </button>
+                  </div>
+                </div>
+
+                {holdings.length > 0 && (
+                  <button
+                    onClick={clearPortfolio}
+                    className="hidden lg:flex w-full items-center justify-center gap-2 py-2.5 text-sm text-red-400 border border-red-500/30 rounded-2xl hover:bg-red-500/10 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Clear Portfolio
+                  </button>
+                )}
+              </div>
+
+              <div className="lg:col-span-3">
+                {holdings.length === 0 ? (
+                  <div className="glass-card p-12 text-center text-sm text-zinc-400">
+                    No holdings yet. Add your first one to start tracking.
+                  </div>
                 ) : (
                   <div className="space-y-3">
-                    {watchlist.map(symbol => {
-                      const stock = screenerData.find(s => s.symbol === symbol);
-                      if (!stock) return null;
-                      const isPositive = (stock.regularMarketChangePercent || 0) >= 0;
+                    {holdings.map((holding, index) => {
+                      const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
+                      const currentValue = holding.quantity * currentPrice;
+                      const gainLoss = currentValue - holding.quantity * holding.avgPrice;
+                      const gainLossPercent =
+                        ((currentPrice - holding.avgPrice) / holding.avgPrice) * 100;
+                      const hasLivePrice = !!stockPrices[holding.symbol];
+
                       return (
-                        <div key={symbol} className="bg-zinc-900 border border-white/10 rounded-3xl p-5 flex justify-between items-center">
-                          <div>
-                            <div className="font-mono text-lg">{symbol}</div>
-                            <div className="text-xs text-zinc-400">{stock.shortName}</div>
+                        <div
+                          key={index}
+                          className="glass-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-semibold text-lg">
+                                {holding.symbol}
+                              </span>
+                              {!hasLivePrice && (
+                                <span className="text-[10px] text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">
+                                  cached
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-zinc-400 mt-0.5">
+                              {holding.quantity} shares × ₹{holding.avgPrice.toLocaleString('en-IN')}
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-mono">{stock.regularMarketPrice?.toLocaleString('en-IN')}</div>
-                            <div className={`text-xs ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{isPositive ? '+' : ''}{stock.regularMarketChangePercent?.toFixed(2)}%</div>
+                          <div className="flex items-center justify-between sm:justify-end gap-4">
+                            <div className="text-right">
+                              <div className="font-mono text-lg">
+                                ₹{currentValue.toLocaleString('en-IN')}
+                              </div>
+                              <div
+                                className={`text-xs flex items-center justify-end gap-1 ${
+                                  gainLoss >= 0 ? 'text-emerald-400' : 'text-red-400'
+                                }`}
+                              >
+                                {gainLoss >= 0 ? (
+                                  <ArrowUp className="w-3 h-3" />
+                                ) : gainLoss < 0 ? (
+                                  <ArrowDown className="w-3 h-3" />
+                                ) : (
+                                  <Minus className="w-3 h-3" />
+                                )}
+                                {gainLoss >= 0 ? '+' : ''}₹{gainLoss.toFixed(0)} (
+                                {gainLossPercent.toFixed(1)}%)
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => removeHolding(holding.symbol)}
+                              className="p-2 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
                           </div>
-                          <button onClick={() => toggleWatchlist(symbol)} className="ml-3 text-red-400 text-xl leading-none">×</button>
                         </div>
                       );
                     })}
@@ -473,93 +888,9 @@ export default function N314() {
                 )}
               </div>
             </div>
-          )}
-
-          {/* AI */}
-          {activeTab === 'ai' && (
-            <div>
-              <div className="mb-6">
-                <div className="text-[32px] font-semibold tracking-[-1.5px]">AI Stock Advisor</div>
-                <p className="text-zinc-400 text-sm mt-1">Google Gemini 2.0 Flash</p>
-              </div>
-
-              <div className="bg-zinc-900 border border-white/10 rounded-3xl flex flex-col h-[560px]">
-                <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-5 space-y-4">
-                  {messages.map((msg, index) => (
-                    <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                      <div className={`max-w-[82%] px-4 py-3 rounded-2xl text-[14.5px] leading-snug ${msg.role === 'user' ? 'bg-emerald-600' : 'bg-zinc-800 border border-white/10'}`}>
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))}
-                  {aiLoading && <div className="text-xs text-zinc-400 px-1">Thinking...</div>}
-                </div>
-
-                <div className="p-4 border-t border-white/10">
-                  <div className="flex gap-2">
-                    <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Ask anything about the market..." className="flex-1 bg-zinc-950 border border-white/10 rounded-2xl px-4 py-3 text-sm focus:outline-none" disabled={aiLoading} />
-                    <button onClick={sendMessage} disabled={aiLoading || !input.trim()} className="bg-emerald-600 px-6 rounded-2xl text-sm font-medium active:bg-emerald-700">Send</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* PORTFOLIO */}
-          {activeTab === 'portfolio' && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <div className="text-[32px] font-semibold tracking-[-1.5px]">Portfolio</div>
-                <button onClick={clearPortfolio} className="text-xs px-4 py-2 rounded-2xl border border-red-500/30 text-red-400 active:bg-red-500/10">Clear</button>
-              </div>
-
-              <div className="bg-zinc-900 border border-white/10 rounded-3xl p-7 mb-6">
-                <div className="text-xs text-zinc-400 tracking-widest">TOTAL VALUE</div>
-                <div className="text-[52px] font-mono tracking-[-2.5px] mt-1 text-emerald-400">₹{portfolioValue.toLocaleString('en-IN')}</div>
-              </div>
-
-              <div className="bg-zinc-900 border border-white/10 rounded-3xl p-6 mb-6">
-                <div className="text-sm font-medium mb-4">Add Holding</div>
-                <div className="space-y-3">
-                  <input type="text" placeholder="Symbol (RELIANCE.NS)" value={newSymbol} onChange={e => setNewSymbol(e.target.value)} className="w-full bg-zinc-950 border border-white/10 rounded-2xl px-4 py-3 text-sm" />
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="number" placeholder="Quantity" value={newQuantity} onChange={e => setNewQuantity(Number(e.target.value))} className="bg-zinc-950 border border-white/10 rounded-2xl px-4 py-3 text-sm" />
-                    <input type="number" placeholder="Avg Price" value={newAvgPrice} onChange={e => setNewAvgPrice(Number(e.target.value))} className="bg-zinc-950 border border-white/10 rounded-2xl px-4 py-3 text-sm" />
-                  </div>
-                  <button onClick={handleAddHolding} className="w-full bg-white text-black py-3 rounded-2xl font-medium active:bg-zinc-200">Add Holding</button>
-                </div>
-              </div>
-
-              {holdings.length === 0 ? (
-                <div className="text-center py-12 text-sm text-zinc-400 border border-dashed border-white/20 rounded-3xl">No holdings yet. Add your first one above.</div>
-              ) : (
-                <div className="space-y-3">
-                  {holdings.map((holding, index) => {
-                    const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
-                    const currentValue = holding.quantity * currentPrice;
-                    const gainLoss = currentValue - (holding.quantity * holding.avgPrice);
-                    const gainLossPercent = ((currentPrice - holding.avgPrice) / holding.avgPrice) * 100;
-
-                    return (
-                      <div key={index} className="bg-zinc-900 border border-white/10 rounded-3xl p-5 flex justify-between items-center">
-                        <div>
-                          <div className="font-mono text-lg">{holding.symbol}</div>
-                          <div className="text-xs text-zinc-400">{holding.quantity} × ₹{holding.avgPrice}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-mono">₹{currentValue.toFixed(0)}</div>
-                          <div className={`text-xs ${gainLoss >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{gainLoss >= 0 ? '+' : ''}₹{gainLoss.toFixed(0)} ({gainLossPercent.toFixed(1)}%)</div>
-                        </div>
-                        <button onClick={() => removeHolding(holding.symbol)} className="ml-4 text-red-400 text-lg">×</button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </main>
-      </div>
+          </div>
+        )}
+      </AppShell>
     </>
   );
 }
