@@ -1,23 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  flexRender,
-  createColumnHelper,
-  SortingState,
-} from '@tanstack/react-table';
-import { ArrowDown, ArrowUp, Minus, Star, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Minus, Trash2, X } from 'lucide-react';
 import { usePortfolioStore } from '../store/portfolioStore';
 import ThreeDOrb from '../components/ThreeDOrb';
 import AppShell, { AppTab } from '../components/AppShell';
 import IntelligenceReport from '../components/IntelligenceReport';
 import LiveMarketPanel from '../components/charts/LiveMarketPanel';
 import LivePriceTicker from '../components/LivePriceTicker';
+import Screener from '../components/Screener';
 
 interface MarketQuote {
   symbol: string;
@@ -32,9 +24,6 @@ interface HistoricalDataPoint {
   close?: number;
   volume?: number;
 }
-
-const WATCHLIST_KEY = 'n314-watchlist';
-const columnHelper = createColumnHelper<MarketQuote>();
 
 function formatIndexLabel(symbol?: string) {
   const labels: Record<string, string> = {
@@ -51,11 +40,6 @@ export default function N314() {
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
   const [stockPrices, setStockPrices] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [screenerData, setScreenerData] = useState<MarketQuote[]>([]);
-  const [screenerLoading, setScreenerLoading] = useState(false);
-  const [globalFilter, setGlobalFilter] = useState('');
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [watchlist, setWatchlist] = useState<string[]>([]);
   const [showPreloader, setShowPreloader] = useState(true);
 
   const { holdings, addHolding, removeHolding, clearPortfolio } = usePortfolioStore();
@@ -68,19 +52,6 @@ export default function N314() {
     const timer = setTimeout(() => setShowPreloader(false), 1200);
     return () => clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(WATCHLIST_KEY);
-      if (saved) setWatchlist(JSON.parse(saved));
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlist));
-  }, [watchlist]);
 
   const fetchMarketData = async () => {
     try {
@@ -99,19 +70,6 @@ export default function N314() {
       if (json.success) setHistoricalData(json.data || []);
     } catch (e) {
       console.error(e);
-    }
-  };
-
-  const fetchScreenerData = async () => {
-    setScreenerLoading(true);
-    try {
-      const res = await fetch('/api/market?type=popular');
-      const json = await res.json();
-      if (json.success) setScreenerData(json.data || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setScreenerLoading(false);
     }
   };
 
@@ -159,20 +117,6 @@ export default function N314() {
     fetchPortfolioPrices();
   }, [fetchPortfolioPrices]);
 
-  useEffect(() => {
-    if (activeTab === 'screener' && screenerData.length === 0) {
-      fetchScreenerData();
-    }
-  }, [activeTab, screenerData.length]);
-
-  const toggleWatchlist = (symbol: string) => {
-    setWatchlist((prev) =>
-      prev.includes(symbol) ? prev.filter((s) => s !== symbol) : [...prev, symbol]
-    );
-  };
-
-  const isInWatchlist = useCallback((symbol: string) => watchlist.includes(symbol), [watchlist]);
-
   const portfolioValue = holdings.reduce((sum, holding) => {
     const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
     return sum + holding.quantity * currentPrice;
@@ -189,8 +133,11 @@ export default function N314() {
     const qty = parseFloat(newQuantity);
     const price = parseFloat(newAvgPrice);
     if (!newSymbol.trim() || qty <= 0 || price <= 0) return;
+    const symbol = newSymbol.toUpperCase().trim().includes('.NS')
+      ? newSymbol.toUpperCase().trim()
+      : `${newSymbol.toUpperCase().trim()}.NS`;
     addHolding({
-      symbol: newSymbol.toUpperCase().trim(),
+      symbol,
       quantity: qty,
       avgPrice: price,
     });
@@ -198,84 +145,6 @@ export default function N314() {
     setNewQuantity('1');
     setNewAvgPrice('');
   };
-
-  const columns = useMemo(
-    () => [
-      columnHelper.accessor('symbol', {
-        header: 'Symbol',
-        cell: (info) => (
-          <span className="font-mono font-semibold tracking-tight">{info.getValue()}</span>
-        ),
-      }),
-      columnHelper.accessor('shortName', {
-        header: 'Name',
-        cell: (info) => <span className="text-zinc-400">{info.getValue() || '—'}</span>,
-      }),
-      columnHelper.accessor('regularMarketPrice', {
-        header: 'Price',
-        cell: (info) => (
-          <span className="font-mono">₹{info.getValue()?.toLocaleString('en-IN') || '—'}</span>
-        ),
-      }),
-      columnHelper.accessor('regularMarketChangePercent', {
-        header: 'Change',
-        cell: (info) => {
-          const val = info.getValue();
-          if (val === undefined) return <span className="text-zinc-500">—</span>;
-          const positive = val >= 0;
-          return (
-            <span className={positive ? 'text-emerald-400' : 'text-red-400'}>
-              {positive ? '+' : ''}
-              {val.toFixed(2)}%
-            </span>
-          );
-        },
-      }),
-      columnHelper.accessor('regularMarketVolume', {
-        header: 'Volume',
-        cell: (info) =>
-          info.getValue() ? (
-            <span className="text-zinc-400">{(info.getValue()! / 1_000_000).toFixed(1)}M</span>
-          ) : (
-            <span className="text-zinc-500">—</span>
-          ),
-      }),
-      columnHelper.accessor('symbol', {
-        id: 'watchlist',
-        header: '',
-        cell: (info) => {
-          const symbol = info.getValue();
-          const watching = isInWatchlist(symbol);
-          return (
-            <button
-              onClick={() => toggleWatchlist(symbol)}
-              className={`px-3 py-1.5 text-xs rounded-full transition-all active:scale-95 ${
-                watching
-                  ? 'bg-emerald-500 text-black font-medium'
-                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400'
-              }`}
-            >
-              {watching ? '★ Watching' : '☆ Watch'}
-            </button>
-          );
-        },
-      }),
-    ],
-    [isInWatchlist]
-  );
-
-  const table = useReactTable({
-    data: screenerData,
-    columns,
-    state: { globalFilter, sorting },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-  });
-
-  const filteredRows = table.getRowModel().rows;
 
   return (
     <>
@@ -300,10 +169,9 @@ export default function N314() {
       </AnimatePresence>
 
       <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
-        {/* OVERVIEW */}
         {activeTab === 'overview' && (
-          <div className="space-y-6 lg:space-y-8">
-            <div className="lg:hidden">
+          <div className="space-y-6">
+            <div>
               <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Market Overview</h2>
               <p className="text-zinc-400 mt-1 text-sm sm:text-base">
                 Real-time insights across major Indian indices
@@ -361,176 +229,16 @@ export default function N314() {
           </div>
         )}
 
-        {/* SCREENER */}
-        {activeTab === 'screener' && (
-          <div className="space-y-6">
-            <div className="lg:hidden">
-              <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Stock Screener</h2>
-              <p className="text-zinc-400 mt-1 text-sm">Find and track opportunities</p>
-            </div>
+        {activeTab === 'screener' && <Screener />}
 
-            <input
-              type="text"
-              placeholder="Search stocks..."
-              value={globalFilter}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              className="input-field"
-            />
-
-            {screenerLoading ? (
-              <div className="text-center py-16 text-zinc-400">Loading data...</div>
-            ) : (
-              <>
-                {/* Mobile card list */}
-                <div className="md:hidden space-y-3">
-                  {filteredRows.length > 0 ? (
-                    filteredRows.map((row) => {
-                      const stock = row.original;
-                      const isPositive = (stock.regularMarketChangePercent || 0) >= 0;
-                      const watching = isInWatchlist(stock.symbol);
-                      return (
-                        <div key={row.id} className="glass-card p-4">
-                          <div className="flex justify-between items-start gap-3">
-                            <div className="min-w-0">
-                              <div className="font-mono font-semibold">{stock.symbol}</div>
-                              <div className="text-xs text-zinc-400 truncate">
-                                {stock.shortName || '—'}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => toggleWatchlist(stock.symbol)}
-                              className={`shrink-0 p-2 rounded-xl transition-colors ${
-                                watching ? 'text-emerald-400 bg-emerald-500/10' : 'text-zinc-500'
-                              }`}
-                            >
-                              <Star className={`w-4 h-4 ${watching ? 'fill-current' : ''}`} />
-                            </button>
-                          </div>
-                          <div className="flex justify-between items-end mt-3 pt-3 border-t border-white/10">
-                            <div className="font-mono text-lg">
-                              ₹{stock.regularMarketPrice?.toLocaleString('en-IN') || '—'}
-                            </div>
-                            <div
-                              className={`text-sm font-medium ${
-                                isPositive ? 'text-emerald-400' : 'text-red-400'
-                              }`}
-                            >
-                              {isPositive ? '+' : ''}
-                              {stock.regularMarketChangePercent?.toFixed(2) ?? '—'}%
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="glass-card p-10 text-center text-zinc-400">No results found.</div>
-                  )}
-                </div>
-
-                {/* Desktop table */}
-                <div className="hidden md:block glass-card overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm min-w-[640px]">
-                      <thead className="bg-zinc-950/60 border-b border-white/10">
-                        {table.getHeaderGroups().map((headerGroup) => (
-                          <tr key={headerGroup.id}>
-                            {headerGroup.headers.map((header) => (
-                              <th
-                                key={header.id}
-                                onClick={header.column.getToggleSortingHandler()}
-                                className="px-5 py-4 text-left text-xs font-medium text-zinc-400 tracking-wider cursor-pointer hover:text-zinc-200"
-                              >
-                                {flexRender(header.column.columnDef.header, header.getContext())}
-                                {{ asc: ' ↑', desc: ' ↓' }[header.column.getIsSorted() as string] ??
-                                  null}
-                              </th>
-                            ))}
-                          </tr>
-                        ))}
-                      </thead>
-                      <tbody className="divide-y divide-white/10">
-                        {filteredRows.length > 0 ? (
-                          filteredRows.map((row) => (
-                            <tr key={row.id} className="hover:bg-white/5 transition-colors">
-                              {row.getVisibleCells().map((cell) => (
-                                <td key={cell.id} className="px-5 py-4">
-                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                </td>
-                              ))}
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={6} className="px-5 py-14 text-center text-zinc-400">
-                              No results found.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Watchlist ({watchlist.length})</h3>
-              {watchlist.length === 0 ? (
-                <div className="border border-dashed border-white/20 rounded-3xl p-8 text-center text-sm text-zinc-400">
-                  Tap ★ on any stock to add it here.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {watchlist.map((symbol) => {
-                    const stock = screenerData.find((s) => s.symbol === symbol);
-                    if (!stock) return null;
-                    const isPositive = (stock.regularMarketChangePercent || 0) >= 0;
-                    return (
-                      <div
-                        key={symbol}
-                        className="glass-card p-4 flex justify-between items-center gap-3"
-                      >
-                        <div className="min-w-0">
-                          <div className="font-mono font-semibold">{symbol}</div>
-                          <div className="text-xs text-zinc-400 truncate">{stock.shortName}</div>
-                          <div className="font-mono mt-1">
-                            ₹{stock.regularMarketPrice?.toLocaleString('en-IN')}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span
-                            className={`text-sm font-medium ${
-                              isPositive ? 'text-emerald-400' : 'text-red-400'
-                            }`}
-                          >
-                            {isPositive ? '+' : ''}
-                            {stock.regularMarketChangePercent?.toFixed(2)}%
-                          </span>
-                          <button
-                            onClick={() => toggleWatchlist(symbol)}
-                            className="p-2 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* AI Intelligence */}
         {activeTab === 'ai' && <IntelligenceReport />}
 
-        {/* PORTFOLIO */}
         {activeTab === 'portfolio' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center lg:hidden">
+            <div className="flex justify-between items-center">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Portfolio</h2>
+                <p className="text-zinc-400 mt-1 text-sm">Track holdings and performance</p>
               </div>
               {holdings.length > 0 && (
                 <button
