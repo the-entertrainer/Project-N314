@@ -1,22 +1,22 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowDown, ArrowUp, Minus, Trash2, X } from 'lucide-react';
-import { usePortfolioStore } from '../store/portfolioStore';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import ThreeDOrb from '../components/ThreeDOrb';
 import AppShell, { AppTab } from '../components/AppShell';
 import IntelligenceReport from '../components/IntelligenceReport';
 import LiveMarketPanel from '../components/charts/LiveMarketPanel';
 import LivePriceTicker from '../components/LivePriceTicker';
 import Screener from '../components/Screener';
+import Portfolio from '../components/Portfolio';
+import { usePortfolioBootstrap } from '../hooks/usePortfolioBootstrap';
 
 interface MarketQuote {
   symbol: string;
   shortName?: string;
   regularMarketPrice?: number;
   regularMarketChangePercent?: number;
-  regularMarketVolume?: number;
 }
 
 interface HistoricalDataPoint {
@@ -38,15 +38,10 @@ export default function N314() {
   const [activeTab, setActiveTab] = useState<AppTab>('overview');
   const [marketData, setMarketData] = useState<MarketQuote[]>([]);
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
-  const [stockPrices, setStockPrices] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [showPreloader, setShowPreloader] = useState(true);
 
-  const { holdings, addHolding, removeHolding, clearPortfolio } = usePortfolioStore();
-
-  const [newSymbol, setNewSymbol] = useState('');
-  const [newQuantity, setNewQuantity] = useState('1');
-  const [newAvgPrice, setNewAvgPrice] = useState('');
+  usePortfolioBootstrap();
 
   useEffect(() => {
     const timer = setTimeout(() => setShowPreloader(false), 1200);
@@ -73,29 +68,6 @@ export default function N314() {
     }
   };
 
-  const fetchPortfolioPrices = useCallback(async () => {
-    if (holdings.length === 0) {
-      setStockPrices({});
-      return;
-    }
-    const symbols = holdings.map((h) => h.symbol).join(',');
-    try {
-      const res = await fetch(`/api/market?symbols=${encodeURIComponent(symbols)}`);
-      const json = await res.json();
-      if (json.success && json.data) {
-        const priceMap: Record<string, number> = {};
-        json.data.forEach((quote: MarketQuote) => {
-          if (quote.symbol && quote.regularMarketPrice) {
-            priceMap[quote.symbol] = quote.regularMarketPrice;
-          }
-        });
-        setStockPrices(priceMap);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }, [holdings]);
-
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -107,44 +79,10 @@ export default function N314() {
     const pollMs = activeTab === 'overview' ? 3000 : 30000;
     const interval = setInterval(() => {
       fetchMarketData();
-      fetchPortfolioPrices();
       if (activeTab === 'overview') fetchHistorical();
     }, pollMs);
     return () => clearInterval(interval);
-  }, [fetchPortfolioPrices, activeTab]);
-
-  useEffect(() => {
-    fetchPortfolioPrices();
-  }, [fetchPortfolioPrices]);
-
-  const portfolioValue = holdings.reduce((sum, holding) => {
-    const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
-    return sum + holding.quantity * currentPrice;
-  }, 0);
-
-  const totalInvested = holdings.reduce(
-    (sum, holding) => sum + holding.quantity * holding.avgPrice,
-    0
-  );
-  const totalGainLoss = portfolioValue - totalInvested;
-  const totalGainLossPercent = totalInvested > 0 ? (totalGainLoss / totalInvested) * 100 : 0;
-
-  const handleAddHolding = () => {
-    const qty = parseFloat(newQuantity);
-    const price = parseFloat(newAvgPrice);
-    if (!newSymbol.trim() || qty <= 0 || price <= 0) return;
-    const symbol = newSymbol.toUpperCase().trim().includes('.NS')
-      ? newSymbol.toUpperCase().trim()
-      : `${newSymbol.toUpperCase().trim()}.NS`;
-    addHolding({
-      symbol,
-      quantity: qty,
-      avgPrice: price,
-    });
-    setNewSymbol('');
-    setNewQuantity('1');
-    setNewAvgPrice('');
-  };
+  }, [activeTab]);
 
   return (
     <>
@@ -233,165 +171,7 @@ export default function N314() {
 
         {activeTab === 'ai' && <IntelligenceReport />}
 
-        {activeTab === 'portfolio' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Portfolio</h2>
-                <p className="text-zinc-400 mt-1 text-sm">Track holdings and performance</p>
-              </div>
-              {holdings.length > 0 && (
-                <button
-                  onClick={clearPortfolio}
-                  className="text-xs px-3 py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-              <div className="lg:col-span-2 space-y-4">
-                <div className="glass-card p-5 sm:p-6">
-                  <div className="text-xs text-zinc-400 tracking-widest uppercase">Total Value</div>
-                  <div className="text-4xl sm:text-5xl font-mono tracking-tight mt-1 text-emerald-400">
-                    ₹{portfolioValue.toLocaleString('en-IN')}
-                  </div>
-                  {holdings.length > 0 && (
-                    <div
-                      className={`flex items-center gap-1.5 mt-2 text-sm font-medium ${
-                        totalGainLoss >= 0 ? 'text-emerald-400' : 'text-red-400'
-                      }`}
-                    >
-                      {totalGainLoss >= 0 ? (
-                        <ArrowUp className="w-4 h-4" />
-                      ) : (
-                        <ArrowDown className="w-4 h-4" />
-                      )}
-                      {totalGainLoss >= 0 ? '+' : ''}₹{totalGainLoss.toLocaleString('en-IN')} (
-                      {totalGainLossPercent.toFixed(1)}%)
-                    </div>
-                  )}
-                </div>
-
-                <div className="glass-card p-5 sm:p-6">
-                  <h3 className="text-sm font-medium mb-4">Add Holding</h3>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder="Symbol (e.g. RELIANCE.NS)"
-                      value={newSymbol}
-                      onChange={(e) => setNewSymbol(e.target.value)}
-                      className="input-field"
-                    />
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="number"
-                        placeholder="Quantity"
-                        value={newQuantity}
-                        onChange={(e) => setNewQuantity(e.target.value)}
-                        className="input-field"
-                        min="1"
-                      />
-                      <input
-                        type="number"
-                        placeholder="Avg Price (₹)"
-                        value={newAvgPrice}
-                        onChange={(e) => setNewAvgPrice(e.target.value)}
-                        className="input-field"
-                        min="0"
-                        step="0.01"
-                      />
-                    </div>
-                    <button onClick={handleAddHolding} className="btn-secondary w-full py-3">
-                      Add Holding
-                    </button>
-                  </div>
-                </div>
-
-                {holdings.length > 0 && (
-                  <button
-                    onClick={clearPortfolio}
-                    className="hidden lg:flex w-full items-center justify-center gap-2 py-2.5 text-sm text-red-400 border border-red-500/30 rounded-2xl hover:bg-red-500/10 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Clear Portfolio
-                  </button>
-                )}
-              </div>
-
-              <div className="lg:col-span-3">
-                {holdings.length === 0 ? (
-                  <div className="glass-card p-12 text-center text-sm text-zinc-400">
-                    No holdings yet. Add your first one to start tracking.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {holdings.map((holding, index) => {
-                      const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
-                      const currentValue = holding.quantity * currentPrice;
-                      const gainLoss = currentValue - holding.quantity * holding.avgPrice;
-                      const gainLossPercent =
-                        ((currentPrice - holding.avgPrice) / holding.avgPrice) * 100;
-                      const hasLivePrice = !!stockPrices[holding.symbol];
-
-                      return (
-                        <div
-                          key={index}
-                          className="glass-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-semibold text-lg">
-                                {holding.symbol}
-                              </span>
-                              {!hasLivePrice && (
-                                <span className="text-[10px] text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">
-                                  cached
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs text-zinc-400 mt-0.5">
-                              {holding.quantity} shares × ₹{holding.avgPrice.toLocaleString('en-IN')}
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between sm:justify-end gap-4">
-                            <div className="text-right">
-                              <div className="font-mono text-lg">
-                                ₹{currentValue.toLocaleString('en-IN')}
-                              </div>
-                              <div
-                                className={`text-xs flex items-center justify-end gap-1 ${
-                                  gainLoss >= 0 ? 'text-emerald-400' : 'text-red-400'
-                                }`}
-                              >
-                                {gainLoss >= 0 ? (
-                                  <ArrowUp className="w-3 h-3" />
-                                ) : gainLoss < 0 ? (
-                                  <ArrowDown className="w-3 h-3" />
-                                ) : (
-                                  <Minus className="w-3 h-3" />
-                                )}
-                                {gainLoss >= 0 ? '+' : ''}₹{gainLoss.toFixed(0)} (
-                                {gainLossPercent.toFixed(1)}%)
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => removeHolding(holding.symbol)}
-                              className="p-2 text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        {activeTab === 'portfolio' && <Portfolio />}
       </AppShell>
     </>
   );

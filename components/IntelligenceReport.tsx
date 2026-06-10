@@ -26,7 +26,6 @@ import {
   Minus,
   Newspaper,
   Radio,
-  Search,
   Shield,
   Sparkles,
   Target,
@@ -37,6 +36,7 @@ import { useLiveChartData } from '../hooks/useLiveChartData';
 import LivePriceChart from './charts/LivePriceChart';
 import LiveVolumeChart from './charts/LiveVolumeChart';
 import LivePriceTicker from './LivePriceTicker';
+import SymbolAutocomplete from './SymbolAutocomplete';
 
 
 const chartTooltip = {
@@ -573,18 +573,13 @@ export default function IntelligenceReport() {
       {/* Analysis input */}
       <div className="glass-card p-4 sm:p-5">
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input
-              type="text"
-              placeholder="Enter symbol — RELIANCE.NS, TCS.NS, AAPL..."
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && runAnalysis()}
-              className="input-field pl-11"
-              disabled={loading}
-            />
-          </div>
+          <SymbolAutocomplete
+            value={symbol}
+            onChange={setSymbol}
+            onSubmit={runAnalysis}
+            disabled={loading}
+            placeholder="Search Nifty 500 — RELIANCE, TCS, INFY…"
+          />
           <button
             onClick={runAnalysis}
             disabled={loading || !symbol.trim()}

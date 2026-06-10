@@ -108,6 +108,28 @@ export async function callGroqSentiment(
   return groqRequest(body, 3);
 }
 
+export async function callGroqPortfolio(portfolioPayload: string, newsPayload: string) {
+  const body = {
+    model: FAST_MODEL,
+    temperature: 0.15,
+    max_tokens: 720,
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content:
+          'Portfolio analyst for Indian equities. Minified JSON only: {"portfolio_summary":"str","current_tracking":{"overall_sentiment":"Bullish|Bearish|Neutral","total_pnl_outlook":"str","holdings_snapshot":[{"symbol":"str","status":"str","pnl_view":"str"}]},"predictions":{"short_term_7d":"str","medium_term_30d":"str"},"upcoming_events":[{"event":"str","date_or_timing":"str","impact":"positive|negative|neutral","affected_symbols":["sym"]}],"daily_advice":"str","risk_alerts":["str"]}. Max 4 events, 3 risk alerts.',
+      },
+      {
+        role: 'user',
+        content: `PORTFOLIO:\n${portfolioPayload}\nNEWS:\n${newsPayload}`,
+      },
+    ],
+  };
+
+  return groqRequest(body, 3);
+}
+
 export const ANALYSIS_SCHEMA = {
   type: 'object',
   properties: {

@@ -21,6 +21,8 @@ interface LiveApiResponse {
   data?: LiveChartPoint[];
   quote?: LiveQuote;
   updatedAt?: string;
+  volumeSource?: 'native' | 'proxy' | 'range';
+  volumeNote?: string;
   error?: string;
 }
 
@@ -42,6 +44,7 @@ export function useLiveChartData({
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [tick, setTick] = useState(0);
+  const [volumeNote, setVolumeNote] = useState<string | undefined>();
   const mountedRef = useRef(true);
 
   const fetchLive = useCallback(async () => {
@@ -57,6 +60,7 @@ export function useLiveChartData({
       const trimmed = (json.data || []).slice(-maxPoints);
       setPoints(trimmed);
       if (json.quote) setQuote(json.quote);
+      setVolumeNote(json.volumeNote);
       setLastUpdated(json.updatedAt ? new Date(json.updatedAt) : new Date());
       setTick((t) => t + 1);
     } catch (e) {
@@ -81,5 +85,5 @@ export function useLiveChartData({
     return () => clearInterval(id);
   }, [enabled, symbol, intervalMs, fetchLive]);
 
-  return { points, quote, lastUpdated, isLoading, tick, refresh: fetchLive };
+  return { points, quote, lastUpdated, isLoading, tick, volumeNote, refresh: fetchLive };
 }

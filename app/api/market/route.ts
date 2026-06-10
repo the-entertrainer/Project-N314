@@ -30,6 +30,13 @@ const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
 const INDEX_SYMBOLS = ['^NSEI', '^NSEBANK', '^BSESN'];
+
+/** Indices report zero intraday volume on Yahoo — use liquid ETF proxies instead. */
+const INDEX_VOLUME_PROXY: Record<string, string> = {
+  '^NSEI': 'NIFTYBEES.NS',
+  '^NSEBANK': 'BANKBEES.NS',
+  '^BSESN': 'NIFTYBEES.NS',
+};
 const POPULAR_SYMBOLS = [
   'RELIANCE.NS',
   'TCS.NS',
@@ -111,6 +118,47 @@ function formatIntradayLabel(epochSec: number) {
   });
 }
 
+function hasVolumeData(points: { volume: number }[]) {
+  return points.some((p) => p.volume > 0);
+}
+
+interface LivePoint {
+  time: string;
+  label: string;
+  close: number;
+  volume: number;
+  epoch: number;
+  quoteIndex: number;
+}
+
+function applyRangeVolumeFallback(points: LivePoint[], quotes: ChartQuote) {
+  points.forEach((point) => {
+    if (point.volume > 0) return;
+    const high = quotes.high?.[point.quoteIndex];
+    const low = quotes.low?.[point.quoteIndex];
+    if (high != null && low != null && high > low) {
+      point.volume = Math.round((high - low) * (point.close || 1));
+    }
+  });
+}
+
+async function mergeProxyVolume(points: LivePoint[], proxySymbol: string) {
+  const proxy = await fetchChart(proxySymbol, '1d', '5m');
+  const proxyTimestamps = proxy.timestamp || [];
+  const proxyVolumes = proxy.indicators?.quote?.[0]?.volume || [];
+
+  const volByTime = new Map<number, number>();
+  proxyTimestamps.forEach((t, i) => {
+    const v = proxyVolumes[i];
+    if (v != null && v > 0) volByTime.set(t, v);
+  });
+
+  points.forEach((point) => {
+    const vol = volByTime.get(point.epoch);
+    if (vol != null && vol > 0) point.volume = vol;
+  });
+}
+
 async function fetchLiveSession(symbol: string) {
   const result = await fetchChart(symbol, '1d', '5m');
   const timestamps = result.timestamp || [];
@@ -126,9 +174,11 @@ async function fetchLiveSession(symbol: string) {
         label: formatIntradayLabel(time),
         close,
         volume: quotes.volume?.[i] ?? 0,
+        epoch: time,
+        quoteIndex: i,
       };
     })
-    .filter((p): p is NonNullable<typeof p> => p !== null);
+    .filter((p): p is LivePoint => p !== null);
 
   const livePrice = meta.regularMarketPrice ?? points[points.length - 1]?.close;
   if (livePrice && points.length > 0) {
@@ -136,10 +186,45 @@ async function fetchLiveSession(symbol: string) {
     last.close = livePrice;
   }
 
+  let volumeSource: 'native' | 'proxy' | 'range' = 'native';
+  let volumeNote: string | undefined;
+
+  if (!hasVolumeData(points)) {
+    const proxySymbol = INDEX_VOLUME_PROXY[symbol];
+    if (proxySymbol) {
+      try {
+        await mergeProxyVolume(points, proxySymbol);
+        if (hasVolumeData(points)) {
+          volumeSource = 'proxy';
+          volumeNote = proxySymbol.replace('.NS', '');
+        }
+      } catch (e) {
+        console.warn(`Volume proxy fetch failed for ${symbol}:`, e);
+      }
+    }
+
+    if (!hasVolumeData(points)) {
+      applyRangeVolumeFallback(points, quotes);
+      if (hasVolumeData(points)) {
+        volumeSource = 'range';
+        volumeNote = 'price-range activity';
+      }
+    }
+  }
+
+  const clientPoints = points.map(({ time, label, close, volume }) => ({
+    time,
+    label,
+    close,
+    volume,
+  }));
+
   return {
-    points,
+    points: clientPoints,
     quote: metaToQuote(meta),
     updatedAt: new Date().toISOString(),
+    volumeSource,
+    volumeNote,
   };
 }
 
@@ -157,6 +242,8 @@ export async function GET(request: NextRequest) {
         data: live.points,
         quote: live.quote,
         updatedAt: live.updatedAt,
+        volumeSource: live.volumeSource,
+        volumeNote: live.volumeNote,
       });
     }
 

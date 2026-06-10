@@ -15,7 +15,11 @@ import type { Nifty500Stock, ScreenerRow, SentimentResult } from '../types/scree
 
 const WATCHLIST_KEY = 'n314-watchlist';
 const BATCH_SIZE = 40;
-const ROW_HEIGHT = 72;
+const ROW_HEIGHT_MOBILE = 96;
+const ROW_HEIGHT_DESKTOP = 52;
+
+const DESKTOP_GRID =
+  'grid-cols-[7.5rem_minmax(0,1.6fr)_minmax(0,1fr)_5.75rem_4.75rem_8.75rem] gap-x-3';
 
 interface MarketQuote {
   symbol: string;
@@ -70,6 +74,15 @@ export default function Screener() {
   const [sentimentResult, setSentimentResult] = useState<SentimentResponse | null>(null);
 
   const parentRef = useRef<HTMLDivElement>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)');
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => {
     try {
@@ -194,9 +207,14 @@ export default function Screener() {
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => (isDesktop ? ROW_HEIGHT_DESKTOP : ROW_HEIGHT_MOBILE),
     overscan: 12,
   });
+
+  useEffect(() => {
+    rowVirtualizer.measure();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDesktop]);
 
   const toggleWatchlist = (symbol: string) => {
     setWatchlist((prev) =>
@@ -349,7 +367,9 @@ export default function Screener() {
         <div className="text-center py-16 text-zinc-400">Loading Nifty 500 registry…</div>
       ) : (
         <div className="glass-card overflow-hidden">
-          <div className="hidden sm:grid grid-cols-[1.1fr_1.6fr_1fr_0.8fr_0.7fr_auto] gap-2 px-4 py-3 border-b border-white/10 text-xs font-medium text-zinc-400 tracking-wider bg-zinc-950/60">
+          <div
+            className={`hidden sm:grid ${DESKTOP_GRID} px-4 py-3 border-b border-white/10 text-xs font-medium text-zinc-400 tracking-wider bg-zinc-950/60 items-center`}
+          >
             <button onClick={() => toggleSort('symbol')} className="text-left hover:text-zinc-200">
               Ticker{sortIndicator('symbol')}
             </button>
@@ -359,13 +379,13 @@ export default function Screener() {
             <button onClick={() => toggleSort('industry')} className="text-left hover:text-zinc-200">
               Sector{sortIndicator('industry')}
             </button>
-            <button onClick={() => toggleSort('price')} className="text-right hover:text-zinc-200">
+            <button onClick={() => toggleSort('price')} className="text-right hover:text-zinc-200 justify-self-end w-full">
               Price{sortIndicator('price')}
             </button>
-            <button onClick={() => toggleSort('change')} className="text-right hover:text-zinc-200">
+            <button onClick={() => toggleSort('change')} className="text-right hover:text-zinc-200 justify-self-end w-full">
               Change{sortIndicator('change')}
             </button>
-            <span className="text-center">Actions</span>
+            <span className="text-center justify-self-center">Actions</span>
           </div>
 
           <div
@@ -398,59 +418,37 @@ export default function Screener() {
                       }}
                       className="border-b border-white/5 hover:bg-white/[0.03] transition-colors"
                     >
-                      <div className="h-full px-4 py-3 flex flex-col sm:grid sm:grid-cols-[1.1fr_1.6fr_1fr_0.8fr_0.7fr_auto] sm:gap-2 sm:items-center">
-                        <div className="flex justify-between sm:contents">
-                          <div className="min-w-0">
-                            <div className="font-mono font-semibold text-sm">{stock.symbol}</div>
-                            <div className="sm:hidden text-xs text-zinc-400 truncate mt-0.5">
-                              {stock.companyName}
-                            </div>
+                      {/* Mobile row */}
+                      <div className="sm:hidden h-full px-4 py-3 flex flex-col justify-center gap-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-mono font-semibold text-sm leading-tight">{stock.symbol}</div>
+                            <div className="text-xs text-zinc-400 truncate mt-0.5">{stock.companyName}</div>
                           </div>
-                          <div className="sm:hidden flex items-center gap-2 shrink-0">
-                            <span className="font-mono text-sm">
+                          <div className="shrink-0 text-right">
+                            <div className="font-mono text-sm tabular-nums leading-tight">
                               {stock.regularMarketPrice != null
                                 ? `₹${stock.regularMarketPrice.toLocaleString('en-IN')}`
                                 : '—'}
-                            </span>
-                            {stock.regularMarketChangePercent != null && (
-                              <span
-                                className={`text-xs font-medium ${
+                            </div>
+                            {stock.regularMarketChangePercent != null ? (
+                              <div
+                                className={`text-xs font-medium tabular-nums mt-0.5 ${
                                   isPositive ? 'text-emerald-400' : 'text-red-400'
                                 }`}
                               >
                                 {isPositive ? '+' : ''}
                                 {stock.regularMarketChangePercent.toFixed(2)}%
-                              </span>
+                              </div>
+                            ) : (
+                              <div className="text-xs text-zinc-500 mt-0.5">—</div>
                             )}
                           </div>
                         </div>
-
-                        <div className="hidden sm:block text-sm text-zinc-400 truncate">
-                          {stock.companyName}
-                        </div>
-                        <div className="hidden sm:block text-xs text-zinc-500 truncate">
-                          {stock.industry}
-                        </div>
-                        <div className="hidden sm:block text-right font-mono text-sm">
-                          {stock.regularMarketPrice != null
-                            ? `₹${stock.regularMarketPrice.toLocaleString('en-IN')}`
-                            : '—'}
-                        </div>
-                        <div className="hidden sm:block text-right text-sm font-medium">
-                          {stock.regularMarketChangePercent != null ? (
-                            <span className={isPositive ? 'text-emerald-400' : 'text-red-400'}>
-                              {isPositive ? '+' : ''}
-                              {stock.regularMarketChangePercent.toFixed(2)}%
-                            </span>
-                          ) : (
-                            <span className="text-zinc-500">—</span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1.5 mt-2 sm:mt-0 justify-end">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => toggleWatchlist(stock.symbol)}
-                            className={`p-2 rounded-xl transition-colors ${
+                            className={`h-8 w-8 inline-flex items-center justify-center rounded-xl transition-colors ${
                               watching
                                 ? 'text-emerald-400 bg-emerald-500/10'
                                 : 'text-zinc-500 hover:text-zinc-300'
@@ -462,7 +460,56 @@ export default function Screener() {
                           <button
                             onClick={() => analyzeSentiment(stock.symbol)}
                             disabled={sentimentLoading}
-                            className="px-2.5 py-1.5 text-[10px] sm:text-xs rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 disabled:opacity-50 flex items-center gap-1 transition-colors"
+                            className="h-8 px-2.5 text-xs rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 disabled:opacity-50 inline-flex items-center justify-center gap-1 transition-colors"
+                          >
+                            {isAnalyzing ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-3 h-3" />
+                            )}
+                            Analyze
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Desktop row */}
+                      <div
+                        className={`hidden sm:grid ${DESKTOP_GRID} h-full px-4 items-center`}
+                      >
+                        <div className="font-mono font-semibold text-sm truncate">{stock.symbol}</div>
+                        <div className="text-sm text-zinc-400 truncate">{stock.companyName}</div>
+                        <div className="text-xs text-zinc-500 truncate">{stock.industry}</div>
+                        <div className="text-right font-mono text-sm tabular-nums justify-self-end w-full">
+                          {stock.regularMarketPrice != null
+                            ? `₹${stock.regularMarketPrice.toLocaleString('en-IN')}`
+                            : '—'}
+                        </div>
+                        <div className="text-right text-sm font-medium tabular-nums justify-self-end w-full">
+                          {stock.regularMarketChangePercent != null ? (
+                            <span className={isPositive ? 'text-emerald-400' : 'text-red-400'}>
+                              {isPositive ? '+' : ''}
+                              {stock.regularMarketChangePercent.toFixed(2)}%
+                            </span>
+                          ) : (
+                            <span className="text-zinc-500">—</span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-center gap-1 justify-self-center">
+                          <button
+                            onClick={() => toggleWatchlist(stock.symbol)}
+                            className={`h-8 w-8 inline-flex items-center justify-center rounded-xl transition-colors shrink-0 ${
+                              watching
+                                ? 'text-emerald-400 bg-emerald-500/10'
+                                : 'text-zinc-500 hover:text-zinc-300'
+                            }`}
+                            title={watching ? 'Remove from watchlist' : 'Add to watchlist'}
+                          >
+                            <Star className={`w-4 h-4 ${watching ? 'fill-current' : ''}`} />
+                          </button>
+                          <button
+                            onClick={() => analyzeSentiment(stock.symbol)}
+                            disabled={sentimentLoading}
+                            className="h-8 px-2 text-xs rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 disabled:opacity-50 inline-flex items-center justify-center gap-1 transition-colors shrink-0 whitespace-nowrap"
                           >
                             {isAnalyzing ? (
                               <Loader2 className="w-3 h-3 animate-spin" />

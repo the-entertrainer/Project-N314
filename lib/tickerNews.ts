@@ -46,7 +46,7 @@ async function fetchRssHeadlines(query: string, limit: number): Promise<TickerHe
   return parseRssHeadlines(await res.text(), limit);
 }
 
-async function fetchFromSources(query: string, limit: number, gnewsKey?: string): Promise<TickerHeadline[]> {
+export async function fetchFromSources(query: string, limit: number, gnewsKey?: string): Promise<TickerHeadline[]> {
   const results: TickerHeadline[] = [];
   const seen = new Set<string>();
 

@@ -47,7 +47,7 @@ export default function LiveMarketPanel({
   historicalData,
 }: LiveMarketPanelProps) {
   const [view, setView] = useState<'live' | 'history'>('live');
-  const { points, quote, lastUpdated, isLoading, tick } = useLiveChartData({
+  const { points, quote, lastUpdated, isLoading, tick, volumeNote } = useLiveChartData({
     symbol,
     enabled: view === 'live',
     intervalMs: 3000,
@@ -137,9 +137,12 @@ export default function LiveMarketPanel({
               <LivePriceChart data={points} animationKey={tick} />
             </div>
             <div className="glass-card p-4 sm:p-5">
-              <div className="text-xs text-zinc-400 mb-3 flex items-center gap-2">
+              <div className="text-xs text-zinc-400 mb-3 flex items-center gap-2 flex-wrap">
                 <span className="live-pulse-dot bg-blue-500" />
                 Session Volume
+                {volumeNote && (
+                  <span className="text-[10px] text-zinc-500">({volumeNote} proxy)</span>
+                )}
               </div>
               <LiveVolumeChart data={points} animationKey={tick} />
             </div>

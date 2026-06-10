@@ -30,11 +30,26 @@ export default function LiveVolumeChart({
   height = 200,
   animationKey = 0,
 }: LiveVolumeChartProps) {
+  const hasVolume = data.some((d) => d.volume > 0);
+
+  if (!hasVolume) {
+    return (
+      <div
+        className="flex items-center justify-center text-sm text-zinc-500"
+        style={{ height }}
+      >
+        Volume data unavailable for this session
+      </div>
+    );
+  }
+
   const enriched = data.map((d, i) => ({
     ...d,
     fill: i === data.length - 1 ? '#60a5fa' : '#3b82f6',
     opacity: i === data.length - 1 ? 1 : 0.65,
   }));
+
+  const maxVol = Math.max(...data.map((d) => d.volume));
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -50,7 +65,10 @@ export default function LiveVolumeChart({
         <YAxis
           stroke="#52525b"
           fontSize={10}
-          tickFormatter={(v) => `${(v / 1e3).toFixed(0)}K`}
+          domain={[0, maxVol * 1.1]}
+          tickFormatter={(v) =>
+            v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : `${(v / 1e3).toFixed(0)}K`
+          }
           width={42}
         />
         <Tooltip
