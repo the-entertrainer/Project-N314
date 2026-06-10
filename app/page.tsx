@@ -446,8 +446,7 @@ export default function N314() {
                         <motion.div 
                           key={symbol} 
                           whileHover={{ scale: 1.01 }}
-                          className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex justify-between items-center"
-                        >
+                          className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex justify-between items-center">
                           <div>
                             <div className="font-mono font-semibold">{symbol}</div>
                             <div className="text-sm text-zinc-400">{stock.shortName}</div>
@@ -567,8 +566,7 @@ export default function N314() {
                       <motion.div 
                         key={index} 
                         whileHover={{ scale: 1.005 }}
-                        className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex justify-between items-center"
-                      >
+                        className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex justify-between items-center">
                         <div>
                           <div className="font-mono text-xl">{holding.symbol}</div>
                           <div className="text-sm text-zinc-400 mt-1">
