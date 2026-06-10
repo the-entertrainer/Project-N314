@@ -189,7 +189,7 @@ export default function N314() {
             {holdings.length === 0 ? (
               <div className="text-center py-16 text-zinc-400 border border-zinc-800 rounded-3xl">
                 Your portfolio is empty.<br />
-                Click "Add Sample" to get started.
+                Click &quot;Add Sample&quot; to get started.
               </div>
             ) : (
               <div className="space-y-4">
