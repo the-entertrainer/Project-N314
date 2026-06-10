@@ -323,7 +323,7 @@ export default function N314() {
                     const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
                     return (
                       <motion.div 
-                        key={i} 
+                        key={i}
                         whileHover={{ y: -4 }}
                         className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 transition-all hover:border-emerald-500/30"
                       >
@@ -444,7 +444,7 @@ export default function N314() {
                       const isPositive = (stock.regularMarketChangePercent || 0) >= 0;
                       return (
                         <motion.div 
-                          key={symbol} 
+                          key={symbol}
                           whileHover={{ scale: 1.01 }}
                           className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex justify-between items-center">
                           <div>
@@ -478,7 +478,7 @@ export default function N314() {
                 <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
                   {messages.map((msg, index) => (
                     <motion.div 
-                      key={index} 
+                      key={index}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -564,7 +564,7 @@ export default function N314() {
 
                     return (
                       <motion.div 
-                        key={index} 
+                        key={index}
                         whileHover={{ scale: 1.005 }}
                         className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex justify-between items-center">
                         <div>
