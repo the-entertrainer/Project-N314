@@ -13,6 +13,7 @@ import {
 } from '@tanstack/react-table';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
 import { usePortfolioStore } from '../store/portfolioStore';
+import ThreeDOrb from '../components/ThreeDOrb';
 
 interface MarketQuote {
   symbol: string;
@@ -39,10 +40,8 @@ export default function N314() {
   const [screenerData, setScreenerData] = useState<MarketQuote[]>([]);
   const [screenerLoading, setScreenerLoading] = useState(false);
 
-  // Watchlist
   const [watchlist, setWatchlist] = useState<string[]>([]);
 
-  // AI Chat
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([
     { role: 'assistant', content: "Hello! I'm your N314 AI Stock Advisor. Ask me about any NSE stock, market trends, or your portfolio." }
   ]);
@@ -52,7 +51,6 @@ export default function N314() {
 
   const { holdings, addHolding, removeHolding, clearPortfolio } = usePortfolioStore();
 
-  // Preloader
   const [showPreloader, setShowPreloader] = useState(true);
 
   useEffect(() => {
@@ -60,7 +58,6 @@ export default function N314() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Auto-scroll chat
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -264,7 +261,6 @@ export default function N314() {
 
   return (
     <>
-      {/* Preloader */}
       <AnimatePresence>
         {showPreloader && (
           <motion.div 
@@ -291,10 +287,12 @@ export default function N314() {
         <header className="border-b border-zinc-800 bg-zinc-900/95 backdrop-blur sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-emerald-500 rounded-2xl flex items-center justify-center font-bold text-xl text-black">N</div>
-              <div>
-                <h1 className="text-3xl font-semibold tracking-tighter">N314</h1>
-                <p className="text-xs text-zinc-500 -mt-1">STOCK INTELLIGENCE</p>
+              <div className="flex items-center gap-3">
+                <ThreeDOrb />
+                <div>
+                  <h1 className="text-3xl font-semibold tracking-tighter">N314</h1>
+                  <p className="text-xs text-zinc-500 -mt-1">STOCK INTELLIGENCE</p>
+                </div>
               </div>
             </div>
             <nav className="flex gap-2 text-sm font-medium">
@@ -311,7 +309,6 @@ export default function N314() {
         </header>
 
         <main className="max-w-7xl mx-auto px-6 py-10">
-          {/* OVERVIEW */}
           {activeTab === 'overview' && (
             <>
               <h2 className="text-5xl font-semibold tracking-tight mb-8">Market Overview</h2>
@@ -375,7 +372,6 @@ export default function N314() {
             </>
           )}
 
-          {/* SCREENER + WATCHLIST */}
           {activeTab === 'screener' && (
             <div>
               <div className="flex justify-between items-center mb-6">
@@ -434,7 +430,6 @@ export default function N314() {
                 </div>
               )}
 
-              {/* Watchlist */}
               <div>
                 <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2">
                   Watchlist <span className="text-sm text-zinc-400">({watchlist.length})</span>
@@ -473,7 +468,6 @@ export default function N314() {
             </div>
           )}
 
-          {/* AI CHAT */}
           {activeTab === 'ai' && (
             <div className="max-w-3xl mx-auto">
               <div className="mb-6">
@@ -532,7 +526,6 @@ export default function N314() {
             </div>
           )}
 
-          {/* PORTFOLIO */}
           {activeTab === 'portfolio' && (
             <div>
               <div className="flex justify-between items-center mb-8">
