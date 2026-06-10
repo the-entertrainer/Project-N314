@@ -3,12 +3,10 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
 
-import type { MarketQuote, HistoricalDataPoint } from '../types/market';
-
 export default function N314() {
   const [activeTab, setActiveTab] = useState<'overview' | 'screener' | 'ai'>('overview');
-  const [marketData, setMarketData] = useState<MarketQuote[]>([]);
-  const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
+  const [marketData, setMarketData] = useState<any[]>([]);
+  const [historicalData, setHistoricalData] = useState<any[]>([]);
 
   const fetchMarketData = async () => {
     try {
@@ -66,11 +64,11 @@ export default function N314() {
             <h2 className="text-5xl font-semibold tracking-tight mb-8">Market Overview</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-              {marketData.length > 0 ? marketData.map((quote, i) => {
+              {marketData.length > 0 ? marketData.map((quote: any, i: number) => {
                 const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
                 return (
                   <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-                    <div className="text-sm text-zinc-500">{quote.symbol.replace('^', '')}</div>
+                    <div className="text-sm text-zinc-500">{quote.symbol?.replace('^', '')}</div>
                     <div className="text-4xl font-mono mt-3">{quote.regularMarketPrice?.toLocaleString('en-IN')}</div>
                     <div className={`mt-2 text-lg font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                       {isPositive ? '+' : ''}{quote.regularMarketChangePercent?.toFixed(2)}%
@@ -120,7 +118,7 @@ export default function N314() {
         )}
 
         {activeTab === 'screener' && <div className="text-center py-20 text-zinc-400">Screener coming soon</div>}
-        {activeTab === 'ai' && <div className="text-center py-20 text-zinc-400">AI Advisor (add GEMINI_API_KEY in Vercel)</div>}
+        {activeTab === 'ai' && <div className="text-center py-20 text-zinc-400">AI Advisor</div>}
       </main>
     </div>
   );
