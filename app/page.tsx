@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   useReactTable,
   getCoreRowModel,
@@ -50,6 +51,14 @@ export default function N314() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const { holdings, addHolding, removeHolding, clearPortfolio } = usePortfolioStore();
+
+  // Preloader
+  const [showPreloader, setShowPreloader] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowPreloader(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -132,7 +141,6 @@ export default function N314() {
     }
   }, [activeTab]);
 
-  // Watchlist functions
   const toggleWatchlist = (symbol: string) => {
     setWatchlist(prev => 
       prev.includes(symbol) 
@@ -143,7 +151,6 @@ export default function N314() {
 
   const isInWatchlist = (symbol: string) => watchlist.includes(symbol);
 
-  // Portfolio value
   const portfolioValue = holdings.reduce((sum, holding) => {
     const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
     return sum + (holding.quantity * currentPrice);
@@ -169,7 +176,6 @@ export default function N314() {
     setNewAvgPrice(0);
   };
 
-  // AI
   const sendMessage = async () => {
     if (!input.trim() || aiLoading) return;
     const userMessage = { role: 'user' as const, content: input.trim() };
@@ -203,7 +209,6 @@ export default function N314() {
     }
   };
 
-  // Screener Table
   const columns = useMemo(() => [
     columnHelper.accessor('symbol', {
       header: 'Symbol',
@@ -231,13 +236,13 @@ export default function N314() {
     }),
     columnHelper.accessor('symbol', {
       id: 'watchlist',
-      header: 'Watch',
+      header: '',
       cell: info => {
         const symbol = info.getValue();
         return (
           <button 
             onClick={() => toggleWatchlist(symbol)}
-            className={`px-3 py-1 text-xs rounded-full ${isInWatchlist(symbol) ? 'bg-emerald-600' : 'bg-zinc-700 hover:bg-zinc-600'}`}
+            className={`px-3 py-1 text-xs rounded-full transition-colors ${isInWatchlist(symbol) ? 'bg-emerald-600 text-white' : 'bg-zinc-700 hover:bg-zinc-600'}`}
           >
             {isInWatchlist(symbol) ? '★' : '☆'}
           </button>
@@ -258,299 +263,341 @@ export default function N314() {
   });
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      <header className="border-b border-zinc-800 bg-zinc-900/95 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-emerald-500 rounded-2xl flex items-center justify-center font-bold text-xl text-black">N</div>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tighter">N314</h1>
-              <p className="text-xs text-zinc-500 -mt-1">STOCK INTELLIGENCE</p>
+    <>
+      {/* Preloader */}
+      <AnimatePresence>
+        {showPreloader && (
+          <motion.div 
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950"
+          >
+            <div className="text-center">
+              <motion.div 
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 1.2, repeat: Infinity }}
+                className="w-16 h-16 mx-auto mb-6 bg-emerald-500 rounded-2xl flex items-center justify-center"
+              >
+                <span className="text-4xl font-bold text-black">N</span>
+              </motion.div>
+              <p className="text-emerald-400 text-sm tracking-[4px]">N314 STOCK INTELLIGENCE</p>
             </div>
-          </div>
-          <nav className="flex gap-2 text-sm font-medium">
-            <button onClick={() => setActiveTab('overview')} className={`px-6 py-2.5 rounded-2xl transition-all ${activeTab === 'overview' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}>Overview</button>
-            <button onClick={() => setActiveTab('screener')} className={`px-6 py-2.5 rounded-2xl transition-all ${activeTab === 'screener' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}>Screener</button>
-            <button onClick={() => setActiveTab('ai')} className={`px-6 py-2.5 rounded-2xl transition-all ${activeTab === 'ai' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}>AI Insights</button>
-            <button onClick={() => setActiveTab('portfolio')} className={`px-6 py-2.5 rounded-2xl transition-all ${activeTab === 'portfolio' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}>Portfolio</button>
-          </nav>
-          <div className="text-xs px-4 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-2">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-            LIVE
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-6 py-10">
-        {/* OVERVIEW */}
-        {activeTab === 'overview' && (
-          <>
-            <h2 className="text-5xl font-semibold tracking-tight mb-8">Market Overview</h2>
-
-            {isLoading && marketData.length === 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                {[1,2,3].map(i => <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 h-40 animate-pulse" />)}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                {marketData.map((quote, i) => {
-                  const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
-                  return (
-                    <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-                      <div className="text-sm text-zinc-500">{quote.symbol?.replace('^', '')}</div>
-                      <div className="text-4xl font-mono mt-3">{quote.regularMarketPrice?.toLocaleString('en-IN')}</div>
-                      <div className={`mt-2 text-lg font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {isPositive ? '+' : ''}{quote.regularMarketChangePercent?.toFixed(2)}%
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="mb-12">
-              <h3 className="text-2xl font-semibold mb-6">NIFTY 50 - 30 Day Trend</h3>
-              {historicalData.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-                    <div className="text-sm text-zinc-400 mb-4">Closing Price</div>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <LineChart data={historicalData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                        <XAxis dataKey="date" stroke="#52525b" />
-                        <YAxis stroke="#52525b" domain={['auto', 'auto']} />
-                        <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none' }} />
-                        <Line type="monotone" dataKey="close" stroke="#10b981" strokeWidth={2} dot={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-                    <div className="text-sm text-zinc-400 mb-4">Volume</div>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <BarChart data={historicalData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                        <XAxis dataKey="date" stroke="#52525b" />
-                        <YAxis stroke="#52525b" />
-                        <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none' }} />
-                        <Bar dataKey="volume" fill="#3b82f6" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              ) : <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center text-zinc-400">Loading chart data...</div>}
-            </div>
-          </>
+          </motion.div>
         )}
+      </AnimatePresence>
 
-        {/* SCREENER + WATCHLIST */}
-        {activeTab === 'screener' && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-4xl font-semibold tracking-tight">Stock Screener</h2>
-              <input
-                type="text"
-                placeholder="Search stocks..."
-                value={globalFilter}
-                onChange={(e) => setGlobalFilter(e.target.value)}
-                className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2 w-80 focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-
-            {screenerLoading ? (
-              <div className="text-center py-20 text-zinc-400">Loading popular stocks...</div>
-            ) : (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden mb-8">
-                <table className="w-full">
-                  <thead className="bg-zinc-950 border-b border-zinc-800">
-                    {table.getHeaderGroups().map(headerGroup => (
-                      <tr key={headerGroup.id}>
-                        {headerGroup.headers.map(header => (
-                          <th
-                            key={header.id}
-                            className="px-6 py-4 text-left text-sm font-medium text-zinc-400 cursor-pointer select-none"
-                            onClick={header.column.getToggleSortingHandler()}
-                          >
-                            {flexRender(header.column.columnDef.header, header.getContext())}
-                            {{
-                              asc: ' ↑',
-                              desc: ' ↓',
-                            }[header.column.getIsSorted() as string] ?? null}
-                          </th>
-                        ))}
-                      </tr>
-                    ))}
-                  </thead>
-                  <tbody>
-                    {table.getRowModel().rows.length > 0 ? (
-                      table.getRowModel().rows.map(row => (
-                        <tr key={row.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
-                          {row.getVisibleCells().map(cell => (
-                            <td key={cell.id} className="px-6 py-4 text-sm">
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </td>
-                          ))}
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="px-6 py-12 text-center text-zinc-400">No stocks found.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+      <div className="min-h-screen bg-zinc-950 text-white">
+        <header className="border-b border-zinc-800 bg-zinc-900/95 backdrop-blur sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-emerald-500 rounded-2xl flex items-center justify-center font-bold text-xl text-black">N</div>
+              <div>
+                <h1 className="text-3xl font-semibold tracking-tighter">N314</h1>
+                <p className="text-xs text-zinc-500 -mt-1">STOCK INTELLIGENCE</p>
               </div>
-            )}
+            </div>
+            <nav className="flex gap-2 text-sm font-medium">
+              <button onClick={() => setActiveTab('overview')} className={`px-6 py-2.5 rounded-2xl transition-all ${activeTab === 'overview' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}>Overview</button>
+              <button onClick={() => setActiveTab('screener')} className={`px-6 py-2.5 rounded-2xl transition-all ${activeTab === 'screener' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}>Screener</button>
+              <button onClick={() => setActiveTab('ai')} className={`px-6 py-2.5 rounded-2xl transition-all ${activeTab === 'ai' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}>AI Insights</button>
+              <button onClick={() => setActiveTab('portfolio')} className={`px-6 py-2.5 rounded-2xl transition-all ${activeTab === 'portfolio' ? 'bg-white text-black' : 'hover:bg-zinc-800 text-zinc-400'}`}>Portfolio</button>
+            </nav>
+            <div className="text-xs px-4 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              LIVE
+            </div>
+          </div>
+        </header>
 
-            {/* Watchlist Section */}
-            <div>
-              <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                Watchlist <span className="text-sm text-zinc-400">({watchlist.length})</span>
-              </h3>
-              {watchlist.length === 0 ? (
-                <div className="text-center py-8 text-zinc-400 border border-zinc-800 rounded-3xl">No stocks in watchlist. Add from the table above.</div>
+        <main className="max-w-7xl mx-auto px-6 py-10">
+          {/* OVERVIEW */}
+          {activeTab === 'overview' && (
+            <>
+              <h2 className="text-5xl font-semibold tracking-tight mb-8">Market Overview</h2>
+
+              {isLoading && marketData.length === 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                  {[1,2,3].map(i => <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 h-40 animate-pulse" />)}
+                </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {watchlist.map(symbol => {
-                    const stock = screenerData.find(s => s.symbol === symbol);
-                    if (!stock) return null;
-                    const isPositive = (stock.regularMarketChangePercent || 0) >= 0;
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                  {marketData.map((quote, i) => {
+                    const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
                     return (
-                      <div key={symbol} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex justify-between items-center">
-                        <div>
-                          <div className="font-mono font-semibold">{symbol}</div>
-                          <div className="text-sm text-zinc-400">{stock.shortName}</div>
+                      <motion.div 
+                        key={i} 
+                        whileHover={{ y: -4 }}
+                        className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 transition-all hover:border-emerald-500/30"
+                      >
+                        <div className="text-sm text-zinc-500">{quote.symbol?.replace('^', '')}</div>
+                        <div className="text-4xl font-mono mt-3">{quote.regularMarketPrice?.toLocaleString('en-IN')}</div>
+                        <div className={`mt-2 text-lg font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {isPositive ? '+' : ''}{quote.regularMarketChangePercent?.toFixed(2)}%
                         </div>
-                        <div className="text-right">
-                          <div className="font-mono">{stock.regularMarketPrice?.toLocaleString('en-IN')}</div>
-                          <div className={`text-sm ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {isPositive ? '+' : ''}{stock.regularMarketChangePercent?.toFixed(2)}%
-                          </div>
-                        </div>
-                        <button onClick={() => toggleWatchlist(symbol)} className="ml-4 text-red-400 hover:text-red-500">×</button>
                       </div>
                     );
                   })}
                 </div>
               )}
-            </div>
-          </div>
-        )}
 
-        {/* AI */}
-        {activeTab === 'ai' && (
-          <div className="max-w-3xl mx-auto">
-            <div className="mb-6">
-              <h2 className="text-4xl font-semibold tracking-tight">AI Stock Advisor</h2>
-              <p className="text-zinc-400 mt-2">Powered by Google Gemini • Ask about any NSE stock or market trend</p>
-            </div>
-
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl flex flex-col h-[620px]">
-              <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-                {messages.map((msg, index) => (
-                  <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[82%] px-5 py-3.5 rounded-3xl text-[15px] leading-relaxed ${msg.role === 'user' ? 'bg-emerald-600' : 'bg-zinc-800'}`}>
-                      {msg.content}
+              <div className="mb-12">
+                <h3 className="text-2xl font-semibold mb-6">NIFTY 50 - 30 Day Trend</h3>
+                {historicalData.length > 0 ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+                      <div className="text-sm text-zinc-400 mb-4">Closing Price</div>
+                      <ResponsiveContainer width="100%" height={280}>
+                        <LineChart data={historicalData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                          <XAxis dataKey="date" stroke="#52525b" />
+                          <YAxis stroke="#52525b" domain={['auto', 'auto']} />
+                          <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none' }} />
+                          <Line type="monotone" dataKey="close" stroke="#10b981" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+                      <div className="text-sm text-zinc-400 mb-4">Volume</div>
+                      <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={historicalData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                          <XAxis dataKey="date" stroke="#52525b" />
+                          <YAxis stroke="#52525b" />
+                          <Tooltip contentStyle={{ backgroundColor: '#18181b', border: 'none' }} />
+                          <Bar dataKey="volume" fill="#3b82f6" />
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
-                ))}
-                {aiLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-zinc-800 px-5 py-3.5 rounded-3xl flex items-center gap-2">
-                      <div className="flex gap-1">
-                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
-                      </div>
-                      <span className="text-xs text-zinc-400 ml-2">Thinking...</span>
-                    </div>
+                ) : <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center text-zinc-400">Loading chart data...</div>}
+              </div>
+            </>
+          )}
+
+          {/* SCREENER + WATCHLIST */}
+          {activeTab === 'screener' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-4xl font-semibold tracking-tight">Stock Screener</h2>
+                <input
+                  type="text"
+                  placeholder="Search stocks..."
+                  value={globalFilter}
+                  onChange={(e) => setGlobalFilter(e.target.value)}
+                  className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2 w-80 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {screenerLoading ? (
+                <div className="text-center py-20 text-zinc-400">Loading popular stocks...</div>
+              ) : (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden mb-8">
+                  <table className="w-full">
+                    <thead className="bg-zinc-950 border-b border-zinc-800">
+                      {table.getHeaderGroups().map(headerGroup => (
+                        <tr key={headerGroup.id}>
+                          {headerGroup.headers.map(header => (
+                            <th
+                              key={header.id}
+                              className="px-6 py-4 text-left text-sm font-medium text-zinc-400 cursor-pointer select-none"
+                              onClick={header.column.getToggleSortingHandler()}
+                            >
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                              {{
+                                asc: ' ↑',
+                                desc: ' ↓',
+                              }[header.column.getIsSorted() as string] ?? null}
+                            </th>
+                          ))}
+                        </tr>
+                      ))}
+                    </thead>
+                    <tbody>
+                      {table.getRowModel().rows.length > 0 ? (
+                        table.getRowModel().rows.map(row => (
+                          <tr key={row.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
+                            {row.getVisibleCells().map(cell => (
+                              <td key={cell.id} className="px-6 py-4 text-sm">
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-12 text-center text-zinc-400">No stocks found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Watchlist */}
+              <div>
+                <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                  Watchlist <span className="text-sm text-zinc-400">({watchlist.length})</span>
+                </h3>
+                {watchlist.length === 0 ? (
+                  <div className="text-center py-8 text-zinc-400 border border-zinc-800 rounded-3xl">No stocks in watchlist. Star stocks from the table above.</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {watchlist.map(symbol => {
+                      const stock = screenerData.find(s => s.symbol === symbol);
+                      if (!stock) return null;
+                      const isPositive = (stock.regularMarketChangePercent || 0) >= 0;
+                      return (
+                        <motion.div 
+                          key={symbol} 
+                          whileHover={{ scale: 1.01 }}
+                          className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex justify-between items-center"
+                        >
+                          <div>
+                            <div className="font-mono font-semibold">{symbol}</div>
+                            <div className="text-sm text-zinc-400">{stock.shortName}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-mono">{stock.regularMarketPrice?.toLocaleString('en-IN')}</div>
+                            <div className={`text-sm ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {isPositive ? '+' : ''}{stock.regularMarketChangePercent?.toFixed(2)}%
+                            </div>
+                          </div>
+                          <button onClick={() => toggleWatchlist(symbol)} className="ml-4 text-red-400 hover:text-red-500 text-xl leading-none">×</button>
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
+            </div>
+          )}
 
-              <div className="p-4 border-t border-zinc-800">
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask about Reliance, market outlook, or any stock..."
-                    className="flex-1 bg-zinc-950 border border-zinc-700 rounded-2xl px-5 py-3 focus:outline-none focus:border-emerald-500 text-[15px]"
-                    disabled={aiLoading}
-                  />
-                  <button
-                    onClick={sendMessage}
-                    disabled={aiLoading || !input.trim()}
-                    className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 px-8 rounded-2xl font-medium transition-colors"
-                  >Send</button>
-                </div>
-                <p className="text-[10px] text-center text-zinc-500 mt-2">Not financial advice. For informational purposes only.</p>
+          {/* AI CHAT */}
+          {activeTab === 'ai' && (
+            <div className="max-w-3xl mx-auto">
+              <div className="mb-6">
+                <h2 className="text-4xl font-semibold tracking-tight">AI Stock Advisor</h2>
+                <p className="text-zinc-400 mt-2">Powered by Google Gemini • Ask about any NSE stock or market trend</p>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* PORTFOLIO */}
-        {activeTab === 'portfolio' && (
-          <div>
-            <div className="flex justify-between items-center mb-8">
-              <div>
-                <h2 className="text-4xl font-semibold tracking-tight">My Portfolio</h2>
-                <p className="text-zinc-400 mt-1">Real-time P&amp;L using live prices</p>
-              </div>
-              <button onClick={clearPortfolio} className="px-4 py-2 bg-red-600/20 text-red-400 rounded-xl hover:bg-red-600/30 text-sm">
-                Clear Portfolio
-              </button>
-            </div>
-
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-8">
-              <div className="text-sm text-zinc-400">Total Portfolio Value</div>
-              <div className="text-5xl font-mono mt-2 text-emerald-400">₹{portfolioValue.toLocaleString('en-IN')}</div>
-            </div>
-
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8">
-              <h4 className="font-medium mb-4">Add New Holding</h4>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <input type="text" placeholder="Symbol (e.g. TCS.NS)" value={newSymbol} onChange={(e) => setNewSymbol(e.target.value)} className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5" />
-                <input type="number" placeholder="Quantity" value={newQuantity} onChange={(e) => setNewQuantity(Number(e.target.value))} className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5" />
-                <input type="number" placeholder="Avg Buy Price" value={newAvgPrice} onChange={(e) => setNewAvgPrice(Number(e.target.value))} className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5" />
-                <button onClick={handleAddHolding} className="bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium">Add Holding</button>
-              </div>
-            </div>
-
-            {holdings.length === 0 ? (
-              <div className="text-center py-12 text-zinc-400 border border-zinc-800 rounded-3xl">Your portfolio is empty. Add holdings above.</div>
-            ) : (
-              <div className="space-y-4">
-                {holdings.map((holding, index) => {
-                  const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
-                  const currentValue = holding.quantity * currentPrice;
-                  const gainLoss = currentValue - (holding.quantity * holding.avgPrice);
-                  const gainLossPercent = ((currentPrice - holding.avgPrice) / holding.avgPrice) * 100;
-
-                  return (
-                    <div key={index} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex justify-between items-center">
-                      <div>
-                        <div className="font-mono text-xl">{holding.symbol}</div>
-                        <div className="text-sm text-zinc-400 mt-1">
-                          {holding.quantity} shares @ avg ₹{holding.avgPrice} → Current ₹{currentPrice.toFixed(2)}
-                        </div>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl flex flex-col h-[620px]">
+                <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                  {messages.map((msg, index) => (
+                    <motion.div 
+                      key={index} 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`max-w-[82%] px-5 py-3.5 rounded-3xl text-[15px] leading-relaxed ${msg.role === 'user' ? 'bg-emerald-600' : 'bg-zinc-800'}`}>
+                        {msg.content}
                       </div>
-                      <div className="text-right">
-                        <div className="text-xl font-mono">₹{currentValue.toFixed(0)}</div>
-                        <div className={`text-sm ${gainLoss >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {gainLoss >= 0 ? '+' : ''}₹{gainLoss.toFixed(0)} ({gainLossPercent.toFixed(1)}%)
+                    </motion.div>
+                  ))}
+                  {aiLoading && (
+                    <div className="flex justify-start">
+                      <div className="bg-zinc-800 px-5 py-3.5 rounded-3xl flex items-center gap-2">
+                        <div className="flex gap-1">
+                          <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                          <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                          <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
                         </div>
+                        <span className="text-xs text-zinc-400 ml-2">Thinking...</span>
                       </div>
-                      <button onClick={() => removeHolding(holding.symbol)} className="ml-6 text-red-400 hover:text-red-500 text-sm">Remove</button>
                     </div>
-                  );
-                })}
+                  )}
+                </div>
+
+                <div className="p-4 border-t border-zinc-800">
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Ask about Reliance, market outlook, or any stock..."
+                      className="flex-1 bg-zinc-950 border border-zinc-700 rounded-2xl px-5 py-3 focus:outline-none focus:border-emerald-500 text-[15px]"
+                      disabled={aiLoading}
+                    />
+                    <button
+                      onClick={sendMessage}
+                      disabled={aiLoading || !input.trim()}
+                      className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 px-8 rounded-2xl font-medium transition-colors"
+                    >Send</button>
+                  </div>
+                  <p className="text-[10px] text-center text-zinc-500 mt-2">Not financial advice. For informational purposes only.</p>
+                </div>
               </div>
-            )}
-          </div>
-        )}
-      </main>
-    </div>
+            </div>
+          )}
+
+          {/* PORTFOLIO */}
+          {activeTab === 'portfolio' && (
+            <div>
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-4xl font-semibold tracking-tight">My Portfolio</h2>
+                  <p className="text-zinc-400 mt-1">Real-time P&amp;L using live prices</p>
+                </div>
+                <button onClick={clearPortfolio} className="px-4 py-2 bg-red-600/20 text-red-400 rounded-xl hover:bg-red-600/30 text-sm">
+                  Clear Portfolio
+                </button>
+              </div>
+
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-8">
+                <div className="text-sm text-zinc-400">Total Portfolio Value</div>
+                <div className="text-5xl font-mono mt-2 text-emerald-400">₹{portfolioValue.toLocaleString('en-IN')}</div>
+              </div>
+
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8">
+                <h4 className="font-medium mb-4">Add New Holding</h4>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <input type="text" placeholder="Symbol (e.g. TCS.NS)" value={newSymbol} onChange={(e) => setNewSymbol(e.target.value)} className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5" />
+                  <input type="number" placeholder="Quantity" value={newQuantity} onChange={(e) => setNewQuantity(Number(e.target.value))} className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5" />
+                  <input type="number" placeholder="Avg Buy Price" value={newAvgPrice} onChange={(e) => setNewAvgPrice(Number(e.target.value))} className="bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-2.5" />
+                  <button onClick={handleAddHolding} className="bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium">Add Holding</button>
+                </div>
+              </div>
+
+              {holdings.length === 0 ? (
+                <div className="text-center py-12 text-zinc-400 border border-zinc-800 rounded-3xl">Your portfolio is empty. Add holdings above.</div>
+              ) : (
+                <div className="space-y-4">
+                  {holdings.map((holding, index) => {
+                    const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
+                    const currentValue = holding.quantity * currentPrice;
+                    const gainLoss = currentValue - (holding.quantity * holding.avgPrice);
+                    const gainLossPercent = ((currentPrice - holding.avgPrice) / holding.avgPrice) * 100;
+
+                    return (
+                      <motion.div 
+                        key={index} 
+                        whileHover={{ scale: 1.005 }}
+                        className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex justify-between items-center"
+                      >
+                        <div>
+                          <div className="font-mono text-xl">{holding.symbol}</div>
+                          <div className="text-sm text-zinc-400 mt-1">
+                            {holding.quantity} shares @ avg ₹{holding.avgPrice} → Current ₹{currentPrice.toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xl font-mono">₹{currentValue.toFixed(0)}</div>
+                          <div className={`text-sm ${gainLoss >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {gainLoss >= 0 ? '+' : ''}₹{gainLoss.toFixed(0)} ({gainLossPercent.toFixed(1)}%)
+                          </div>
+                        </div>
+                        <button onClick={() => removeHolding(holding.symbol)} className="ml-6 text-red-400 hover:text-red-500 text-sm">Remove</button>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+    </>
   );
 }
