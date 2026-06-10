@@ -8,6 +8,7 @@ export default function N314() {
   const [activeTab, setActiveTab] = useState<'overview' | 'screener' | 'ai' | 'portfolio'>('overview');
   const [marketData, setMarketData] = useState<any[]>([]);
   const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [stockPrices, setStockPrices] = useState<Record<string, number>>({});
 
   const { holdings, addHolding, removeHolding, clearPortfolio } = usePortfolioStore();
 
@@ -31,18 +32,48 @@ export default function N314() {
     }
   };
 
+  // Fetch current prices for portfolio holdings
+  const fetchPortfolioPrices = async () => {
+    if (holdings.length === 0) return;
+
+    const symbols = holdings.map(h => h.symbol).join(',');
+    try {
+      const res = await fetch(`/api/market?symbols=${symbols}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        const priceMap: Record<string, number> = {};
+        json.data.forEach((quote: any) => {
+          if (quote.symbol && quote.regularMarketPrice) {
+            priceMap[quote.symbol] = quote.regularMarketPrice;
+          }
+        });
+        setStockPrices(priceMap);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchMarketData();
     fetchHistorical();
-    const interval = setInterval(fetchMarketData, 30000);
+    const interval = setInterval(() => {
+      fetchMarketData();
+      fetchPortfolioPrices();
+    }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [holdings]);
 
-  // Simple portfolio value calculation (mock prices for now)
+  // Calculate real portfolio value
   const portfolioValue = holdings.reduce((sum, holding) => {
-    const currentPrice = 2400; // placeholder
+    const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
     return sum + (holding.quantity * currentPrice);
   }, 0);
+
+  // Quick add example holdings
+  const addSampleHolding = () => {
+    addHolding({ symbol: 'RELIANCE.NS', quantity: 10, avgPrice: 2450 });
+  };
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -72,6 +103,7 @@ export default function N314() {
         {activeTab === 'overview' && (
           <>
             <h2 className="text-5xl font-semibold tracking-tight mb-8">Market Overview</h2>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
               {marketData.length > 0 ? marketData.map((quote: any, i: number) => {
                 const isPositive = (quote.regularMarketChangePercent || 0) >= 0;
@@ -84,7 +116,7 @@ export default function N314() {
                     </div>
                   </div>
                 );
-              }) : <div className="col-span-3 text-center py-8 text-zinc-400">Loading...</div>}
+              }) : <div className="col-span-3 text-center py-8 text-zinc-400">Loading live data...</div>}
             </div>
 
             <div className="mb-12">
@@ -127,40 +159,60 @@ export default function N314() {
         {activeTab === 'portfolio' && (
           <div>
             <div className="flex justify-between items-center mb-8">
-              <h2 className="text-4xl font-semibold tracking-tight">My Portfolio</h2>
-              <button onClick={clearPortfolio} className="text-sm px-4 py-2 bg-red-600/20 text-red-400 rounded-xl hover:bg-red-600/30">
-                Clear All
-              </button>
+              <div>
+                <h2 className="text-4xl font-semibold tracking-tight">My Portfolio</h2>
+                <p className="text-zinc-400 mt-1">Real-time value using live prices</p>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={addSampleHolding} className="px-4 py-2 bg-emerald-600 rounded-xl text-sm hover:bg-emerald-500">
+                  Add Sample (RELIANCE)
+                </button>
+                <button onClick={clearPortfolio} className="px-4 py-2 bg-red-600/20 text-red-400 rounded-xl hover:bg-red-600/30 text-sm">
+                  Clear All
+                </button>
+              </div>
             </div>
 
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mb-8">
-              <div className="text-sm text-zinc-400">Total Portfolio Value (approx)</div>
-              <div className="text-5xl font-mono mt-2">₹{portfolioValue.toLocaleString('en-IN')}</div>
+              <div className="text-sm text-zinc-400">Total Portfolio Value</div>
+              <div className="text-5xl font-mono mt-2 text-emerald-400">₹{portfolioValue.toLocaleString('en-IN')}</div>
             </div>
 
             {holdings.length === 0 ? (
-              <div className="text-center py-12 text-zinc-400">
-                Your portfolio is empty. Add holdings to track them.
+              <div className="text-center py-16 text-zinc-400 border border-zinc-800 rounded-3xl">
+                Your portfolio is empty.<br />
+                Click "Add Sample" to get started.
               </div>
             ) : (
               <div className="space-y-4">
-                {holdings.map((holding, index) => (
-                  <div key={index} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex justify-between items-center">
-                    <div>
-                      <div className="font-mono text-xl">{holding.symbol}</div>
-                      <div className="text-sm text-zinc-400">{holding.quantity} shares @ avg ₹{holding.avgPrice}</div>
+                {holdings.map((holding, index) => {
+                  const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
+                  const currentValue = holding.quantity * currentPrice;
+                  const gainLoss = currentValue - (holding.quantity * holding.avgPrice);
+                  const gainLossPercent = ((currentPrice - holding.avgPrice) / holding.avgPrice) * 100;
+
+                  return (
+                    <div key={index} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex justify-between items-center">
+                      <div>
+                        <div className="font-mono text-xl">{holding.symbol}</div>
+                        <div className="text-sm text-zinc-400 mt-1">
+                          {holding.quantity} shares @ avg ₹{holding.avgPrice} → Current ₹{currentPrice.toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xl font-mono">₹{currentValue.toFixed(0)}</div>
+                        <div className={`text-sm ${gainLoss >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {gainLoss >= 0 ? '+' : ''}₹{gainLoss.toFixed(0)} ({gainLossPercent.toFixed(1)}%)
+                        </div>
+                      </div>
+                      <button onClick={() => removeHolding(holding.symbol)} className="ml-6 text-red-400 hover:text-red-500">
+                        Remove
+                      </button>
                     </div>
-                    <button onClick={() => removeHolding(holding.symbol)} className="text-red-400 hover:text-red-500">
-                      Remove
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
-
-            <div className="mt-8 text-xs text-zinc-500">
-              Note: Full integration with live prices coming soon.
-            </div>
           </div>
         )}
       </main>
