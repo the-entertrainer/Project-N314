@@ -1,14 +1,24 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  flexRender,
+  createColumnHelper,
+  SortingState,
+} from '@tanstack/react-table';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
-import { usePortfolioStore, type PortfolioHolding } from '../store/portfolioStore';
+import { usePortfolioStore } from '../store/portfolioStore';
 
 interface MarketQuote {
   symbol: string;
   shortName?: string;
   regularMarketPrice?: number;
   regularMarketChangePercent?: number;
+  regularMarketVolume?: number;
 }
 
 interface HistoricalDataPoint {
@@ -17,21 +27,28 @@ interface HistoricalDataPoint {
   volume?: number;
 }
 
+const columnHelper = createColumnHelper<MarketQuote>();
+
 export default function N314() {
   const [activeTab, setActiveTab] = useState<'overview' | 'screener' | 'ai' | 'portfolio'>('overview');
   const [marketData, setMarketData] = useState<MarketQuote[]>([]);
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
   const [stockPrices, setStockPrices] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [screenerData, setScreenerData] = useState<MarketQuote[]>([]);
   const [screenerLoading, setScreenerLoading] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
 
   // AI Chat
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([
     { role: 'assistant', content: "Hello! I'm your N314 AI Stock Advisor. Ask me about any NSE stock, market trends, or your portfolio." }
   ]);
   const [input, setInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Screener Table State
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   const { holdings, addHolding, removeHolding, clearPortfolio } = usePortfolioStore();
 
@@ -59,6 +76,19 @@ export default function N314() {
       if (json.success) setHistoricalData(json.data || []);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const fetchScreenerData = async () => {
+    setScreenerLoading(true);
+    try {
+      const res = await fetch('/api/market?type=popular');
+      const json = await res.json();
+      if (json.success) setScreenerData(json.data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setScreenerLoading(false);
     }
   };
 
@@ -97,7 +127,14 @@ export default function N314() {
     return () => clearInterval(interval);
   }, [fetchPortfolioPrices]);
 
-  // Portfolio value with real prices
+  // Load screener when tab is opened
+  useEffect(() => {
+    if (activeTab === 'screener' && screenerData.length === 0) {
+      fetchScreenerData();
+    }
+  }, [activeTab]);
+
+  // Portfolio value
   const portfolioValue = holdings.reduce((sum, holding) => {
     const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
     return sum + (holding.quantity * currentPrice);
@@ -107,7 +144,7 @@ export default function N314() {
     addHolding({ symbol: 'RELIANCE.NS', quantity: 10, avgPrice: 2450 });
   };
 
-  // Manual add to portfolio
+  // Manual add form
   const [newSymbol, setNewSymbol] = useState('');
   const [newQuantity, setNewQuantity] = useState(1);
   const [newAvgPrice, setNewAvgPrice] = useState(0);
@@ -124,10 +161,9 @@ export default function N314() {
     setNewAvgPrice(0);
   };
 
-  // AI Send Message
+  // AI
   const sendMessage = async () => {
     if (!input.trim() || aiLoading) return;
-
     const userMessage = { role: 'user' as const, content: input.trim() };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
@@ -140,14 +176,13 @@ export default function N314() {
         body: JSON.stringify({ prompt: input.trim() }),
       });
       const data = await res.json();
-
       if (data.success) {
         setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: data.error || 'Sorry, something went wrong.' }]);
       }
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Failed to connect to AI. Please try again later.' }]);
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Failed to connect to AI.' }]);
     } finally {
       setAiLoading(false);
     }
@@ -159,6 +194,45 @@ export default function N314() {
       sendMessage();
     }
   };
+
+  // TanStack Table for Screener
+  const columns = useMemo(() => [
+    columnHelper.accessor('symbol', {
+      header: 'Symbol',
+      cell: info => <span className="font-mono font-semibold">{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('shortName', {
+      header: 'Name',
+      cell: info => info.getValue() || '—',
+    }),
+    columnHelper.accessor('regularMarketPrice', {
+      header: 'Price',
+      cell: info => info.getValue()?.toLocaleString('en-IN') || '—',
+    }),
+    columnHelper.accessor('regularMarketChangePercent', {
+      header: 'Change %',
+      cell: info => {
+        const val = info.getValue();
+        if (val === undefined) return '—';
+        return <span className={val >= 0 ? 'text-emerald-400' : 'text-red-400'}>{val >= 0 ? '+' : ''}{val.toFixed(2)}%</span>;
+      },
+    }),
+    columnHelper.accessor('regularMarketVolume', {
+      header: 'Volume',
+      cell: info => info.getValue() ? (info.getValue()! / 1_000_000).toFixed(1) + 'M' : '—',
+    }),
+  ], []);
+
+  const table = useReactTable({
+    data: screenerData,
+    columns,
+    state: { globalFilter, sorting },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+  });
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -245,18 +319,68 @@ export default function N314() {
           </>
         )}
 
-        {/* SCREENER */}
+        {/* IMPROVED SCREENER WITH TANSTACK TABLE */}
         {activeTab === 'screener' && (
           <div>
-            <h2 className="text-4xl font-semibold tracking-tight mb-6">Stock Screener</h2>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 text-center">
-              <p className="text-zinc-400">Advanced TanStack Table screener with filters coming soon.</p>
-              <p className="text-sm text-zinc-500 mt-2">Currently showing popular stocks via live data.</p>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-4xl font-semibold tracking-tight">Stock Screener</h2>
+              <input
+                type="text"
+                placeholder="Search stocks..."
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2 w-80 focus:outline-none focus:border-emerald-500"
+              />
             </div>
+
+            {screenerLoading ? (
+              <div className="text-center py-20 text-zinc-400">Loading popular stocks...</div>
+            ) : (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-zinc-950 border-b border-zinc-800">
+                    {table.getHeaderGroups().map(headerGroup => (
+                      <tr key={headerGroup.id}>
+                        {headerGroup.headers.map(header => (
+                          <th
+                            key={header.id}
+                            className="px-6 py-4 text-left text-sm font-medium text-zinc-400 cursor-pointer select-none"
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            {{
+                              asc: ' ↑',
+                              desc: ' ↓',
+                            }[header.column.getIsSorted() as string] ?? null}
+                          </th>
+                        ))}
+                      </tr>
+                    ))}
+                  </thead>
+                  <tbody>
+                    {table.getRowModel().rows.length > 0 ? (
+                      table.getRowModel().rows.map(row => (
+                        <tr key={row.id} className="border-b border-zinc-800 hover:bg-zinc-800/50">
+                          {row.getVisibleCells().map(cell => (
+                            <td key={cell.id} className="px-6 py-4 text-sm">
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </td>
+                          ))}
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-zinc-400">No stocks found.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
-        {/* AI CHAT - FULLY BUILT */}
+        {/* AI CHAT */}
         {activeTab === 'ai' && (
           <div className="max-w-3xl mx-auto">
             <div className="mb-6">
@@ -328,7 +452,6 @@ export default function N314() {
               <div className="text-5xl font-mono mt-2 text-emerald-400">₹{portfolioValue.toLocaleString('en-IN')}</div>
             </div>
 
-            {/* Add New Holding Form */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-8">
               <h4 className="font-medium mb-4">Add New Holding</h4>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -353,7 +476,9 @@ export default function N314() {
                     <div key={index} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex justify-between items-center">
                       <div>
                         <div className="font-mono text-xl">{holding.symbol}</div>
-                        <div className="text-sm text-zinc-400 mt-1">{holding.quantity} shares @ avg ₹{holding.avgPrice}</div>
+                        <div className="text-sm text-zinc-400 mt-1">
+                          {holding.quantity} shares @ avg ₹{holding.avgPrice} → Current ₹{currentPrice.toFixed(2)}
+                        </div>
                       </div>
                       <div className="text-right">
                         <div className="text-xl font-mono">₹{currentValue.toFixed(0)}</div>
