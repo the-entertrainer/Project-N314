@@ -17,16 +17,18 @@ function arr(v: unknown, max = 8): string[] {
 
 export function mergeDailyReport(
   data: DailyReportData,
-  partA: Record<string, unknown>,
-  partB: Record<string, unknown>
+  summary: Record<string, unknown>,
+  top25Parts: Record<string, unknown>[],
+  fno: Record<string, unknown>,
+  sectors: Record<string, unknown>
 ): DailyReport {
-  const es = (partA.executive_summary || {}) as Record<string, unknown>;
-  const mo = (partA.market_overview || {}) as Record<string, unknown>;
+  const es = (summary.executive_summary || {}) as Record<string, unknown>;
+  const mo = (summary.market_overview || {}) as Record<string, unknown>;
   const nd = (mo.next_day || {}) as Record<string, unknown>;
   const wo = (mo.weekly_outlook || {}) as Record<string, unknown>;
-  const fii = (partA.fii_dii_analysis || {}) as Record<string, unknown>;
-  const dash = (partB.actionable_dashboard || {}) as Record<string, unknown>;
-  const ideas = (partB.best_ideas || {}) as Record<string, unknown>;
+  const fii = (summary.fii_dii_analysis || {}) as Record<string, unknown>;
+  const dash = (sectors.actionable_dashboard || {}) as Record<string, unknown>;
+  const ideas = (sectors.best_ideas || {}) as Record<string, unknown>;
 
   const parseIdea = (raw: unknown) => {
     const i = (raw || {}) as Record<string, unknown>;
@@ -40,7 +42,9 @@ export function mergeDailyReport(
     };
   };
 
-  const top25Raw = Array.isArray(partA.top_25) ? partA.top_25 : [];
+  const top25Raw = top25Parts.flatMap((part) =>
+    Array.isArray(part.top_25) ? part.top_25 : []
+  );
   const top25 = top25Raw.slice(0, 25).map((item) => {
     const s = item as Record<string, unknown>;
     const inv = (s.investment_plan || {}) as Record<string, unknown>;
@@ -81,16 +85,16 @@ export function mergeDailyReport(
     };
   });
 
-  const fnoRaw = Array.isArray(partB.fno_opportunities) ? partB.fno_opportunities : [];
-  const niftyRaw = Array.isArray(partB.nifty_strategies) ? partB.nifty_strategies : [];
-  const sectorRaw = Array.isArray(partB.sector_leadership) ? partB.sector_leadership : [];
-  const ipoRaw = Array.isArray(partB.ipo_research) ? partB.ipo_research : [];
+  const fnoRaw = Array.isArray(fno.fno_opportunities) ? fno.fno_opportunities : [];
+  const niftyRaw = Array.isArray(fno.nifty_strategies) ? fno.nifty_strategies : [];
+  const sectorRaw = Array.isArray(sectors.sector_leadership) ? sectors.sector_leadership : [];
+  const ipoRaw = Array.isArray(sectors.ipo_research) ? sectors.ipo_research : [];
 
   return {
     generated_at: new Date().toISOString(),
     report_date: data.report_date,
-    data_sources: data.data_sources,
-    confidence_score: num(partA.confidence_score, 70) ?? 70,
+    data_sources: [...data.data_sources, 'Gemini AI'],
+    confidence_score: num(summary.confidence_score, 70) ?? 70,
     executive_summary: {
       market_sentiment: str(es.market_sentiment, 300),
       nifty_outlook: str(es.nifty_outlook, 300),
@@ -177,9 +181,9 @@ export function mergeDailyReport(
         growth_outlook: str(s.growth_outlook, 120),
       };
     }),
-    best_sector_1m: str(partB.best_sector_1m, 60),
-    best_sector_1y: str(partB.best_sector_1y, 60),
-    best_sector_5y: str(partB.best_sector_5y, 60),
+    best_sector_1m: str(sectors.best_sector_1m, 60),
+    best_sector_1y: str(sectors.best_sector_1y, 60),
+    best_sector_5y: str(sectors.best_sector_5y, 60),
     ipo_research: ipoRaw.slice(0, 6).map((item) => {
       const i = item as Record<string, unknown>;
       return {
@@ -214,7 +218,7 @@ export function mergeDailyReport(
     },
     risk_disclaimer:
       str(
-        partB.risk_disclaimer,
+        sectors.risk_disclaimer,
         500
       ) ||
       'This report is for educational purposes only. Not SEBI-registered investment advice. Past performance does not guarantee future results. Conduct your own due diligence.',

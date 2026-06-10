@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { gatherDailyReportData } from '../../../../lib/dailyReportData';
-import { groqDailyReportPartA, groqDailyReportPartB } from '../../../../lib/dailyReportGroq';
+import { generateAllReportParts } from '../../../../lib/dailyReportAi';
 import { mergeDailyReport } from '../../../../lib/dailyReportMerge';
-import { GroqRateLimitError } from '../../../../lib/groq';
+import { parseAiJson } from '../../../../lib/parseAiJson';
+import { GeminiRateLimitError, GeminiApiError } from '../../../../lib/gemini';
 
 export const maxDuration = 60;
 
@@ -10,25 +11,34 @@ export async function POST() {
   try {
     const data = await gatherDailyReportData();
 
-    const [rawA, rawB] = await Promise.all([
-      groqDailyReportPartA(data),
-      groqDailyReportPartB(data),
-    ]);
+    const { summaryRaw, top25Raws, fnoRaw, sectorsRaw } = await generateAllReportParts(data);
 
-    const partA = JSON.parse(rawA) as Record<string, unknown>;
-    const partB = JSON.parse(rawB) as Record<string, unknown>;
-    const report = mergeDailyReport(data, partA, partB);
+    const summary = parseAiJson(summaryRaw);
+    const top25Parts = top25Raws.map((raw) => parseAiJson(raw));
+    const fno = parseAiJson(fnoRaw);
+    const sectors = parseAiJson(sectorsRaw);
+
+    const report = mergeDailyReport(data, summary, top25Parts, fno, sectors);
 
     return NextResponse.json({ success: true, data: report });
   } catch (e) {
-    if (e instanceof GroqRateLimitError) {
+    if (e instanceof GeminiRateLimitError) {
       return NextResponse.json(
-        { success: false, error: 'Groq rate limit. Try again shortly.', code: 'RATE_LIMIT' },
+        { success: false, error: 'Gemini rate limit. Wait a moment and try again.', code: 'RATE_LIMIT' },
         { status: 429 }
       );
     }
+    if (e instanceof GeminiApiError) {
+      return NextResponse.json(
+        { success: false, error: e.message, code: 'GEMINI_ERROR' },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(
-      { success: false, error: e instanceof Error ? e.message : 'Daily report generation failed' },
+      {
+        success: false,
+        error: e instanceof Error ? e.message : 'Daily report generation failed',
+      },
       { status: 500 }
     );
   }

@@ -180,15 +180,14 @@ export async function gatherDailyReportData() {
 
   const compactScored = scored
     .sort((a, b) => b.conviction_score - a.conviction_score)
-    .map((s) =>
-      `${s.symbol}|${s.cmp}|${s.change_pct}%|RSI${s.rsi ?? 'NA'}|mom20d:${s.momentum_20d}|conv:${s.conviction_score}|risk:${s.risk_score}|PE:${s.pe ?? 'NA'}`
-    )
-    .join('\n');
+    .slice(0, 20)
+    .map((s) => `${s.symbol}:${s.cmp}:c${s.conviction_score}`)
+    .join(',');
 
   const compactTop200 = top200
-    .slice(0, 60)
-    .map((r) => `${r.rank}|${r.symbol}|${r.sector}|CMP:${r.cmp ?? 'NA'}|conv:${r.conviction_score}|risk:${r.risk_score}`)
-    .join('\n');
+    .slice(0, 20)
+    .map((r) => `${r.rank}.${r.symbol}:${r.cmp ?? '-'}`)
+    .join(',');
 
   const ipoPayload = [...ipoUpcoming.slice(0, 4), ...ipoRecent.slice(0, 4)]
     .map((i) =>

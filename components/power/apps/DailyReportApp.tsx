@@ -27,7 +27,7 @@ export function DailyReportApp() {
     setProgress('Gathering NSE, Yahoo & screener data…');
     try {
       const res = await fetch('/api/power/daily-report', { method: 'POST' });
-      setProgress('Synthesizing institutional analysis…');
+      setProgress('Gemini generating report sections…');
       const json = await res.json();
       if (!json.success) {
         setError(json.error || 'Report generation failed');
@@ -55,7 +55,7 @@ export function DailyReportApp() {
       settings={
         <div className="space-y-3">
           <p className="text-[10px] text-zinc-500 leading-relaxed">
-            Generates an institutional-grade daily report covering equities, F&O, sectors, IPOs, and actionable ideas — backed by live NSE & market data.
+            Generates an institutional-grade daily report via Gemini AI (split into focused sections to avoid token limits). Requires GEMINI_API_KEY on Vercel.
           </p>
           <button
             onClick={generate}

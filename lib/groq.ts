@@ -148,7 +148,7 @@ export async function callGroqDailyReport(systemPrompt: string, userPayload: str
   const body = {
     model: FAST_MODEL,
     temperature: 0.12,
-    max_tokens: 4096,
+    max_tokens: 2048,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: systemPrompt },
