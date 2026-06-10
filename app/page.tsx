@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
 import { usePortfolioStore } from '../store/portfolioStore';
 
@@ -32,10 +32,8 @@ export default function N314() {
     }
   };
 
-  // Fetch current prices for portfolio holdings
-  const fetchPortfolioPrices = async () => {
+  const fetchPortfolioPrices = useCallback(async () => {
     if (holdings.length === 0) return;
-
     const symbols = holdings.map(h => h.symbol).join(',');
     try {
       const res = await fetch(`/api/market?symbols=${symbols}`);
@@ -52,7 +50,7 @@ export default function N314() {
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [holdings]);
 
   useEffect(() => {
     fetchMarketData();
@@ -62,15 +60,13 @@ export default function N314() {
       fetchPortfolioPrices();
     }, 30000);
     return () => clearInterval(interval);
-  }, [holdings]);
+  }, [fetchPortfolioPrices]);
 
-  // Calculate real portfolio value
   const portfolioValue = holdings.reduce((sum, holding) => {
     const currentPrice = stockPrices[holding.symbol] || holding.avgPrice;
     return sum + (holding.quantity * currentPrice);
   }, 0);
 
-  // Quick add example holdings
   const addSampleHolding = () => {
     addHolding({ symbol: 'RELIANCE.NS', quantity: 10, avgPrice: 2450 });
   };
@@ -181,7 +177,7 @@ export default function N314() {
             {holdings.length === 0 ? (
               <div className="text-center py-16 text-zinc-400 border border-zinc-800 rounded-3xl">
                 Your portfolio is empty.<br />
-                Click "Add Sample" to get started.
+                Click &quot;Add Sample&quot; to get started.
               </div>
             ) : (
               <div className="space-y-4">
