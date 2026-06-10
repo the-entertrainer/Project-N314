@@ -38,6 +38,9 @@ export default function N314() {
   const [screenerData, setScreenerData] = useState<MarketQuote[]>([]);
   const [screenerLoading, setScreenerLoading] = useState(false);
 
+  // Watchlist
+  const [watchlist, setWatchlist] = useState<string[]>([]);
+
   // AI Chat
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([
     { role: 'assistant', content: "Hello! I'm your N314 AI Stock Advisor. Ask me about any NSE stock, market trends, or your portfolio." }
@@ -45,10 +48,6 @@ export default function N314() {
   const [input, setInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-
-  // Screener Table State
-  const [globalFilter, setGlobalFilter] = useState('');
-  const [sorting, setSorting] = useState<SortingState>([]);
 
   const { holdings, addHolding, removeHolding, clearPortfolio } = usePortfolioStore();
 
@@ -127,12 +126,22 @@ export default function N314() {
     return () => clearInterval(interval);
   }, [fetchPortfolioPrices]);
 
-  // Load screener when tab is opened
   useEffect(() => {
     if (activeTab === 'screener' && screenerData.length === 0) {
       fetchScreenerData();
     }
   }, [activeTab]);
+
+  // Watchlist functions
+  const toggleWatchlist = (symbol: string) => {
+    setWatchlist(prev => 
+      prev.includes(symbol) 
+        ? prev.filter(s => s !== symbol) 
+        : [...prev, symbol]
+    );
+  };
+
+  const isInWatchlist = (symbol: string) => watchlist.includes(symbol);
 
   // Portfolio value
   const portfolioValue = holdings.reduce((sum, holding) => {
@@ -144,7 +153,6 @@ export default function N314() {
     addHolding({ symbol: 'RELIANCE.NS', quantity: 10, avgPrice: 2450 });
   };
 
-  // Manual add form
   const [newSymbol, setNewSymbol] = useState('');
   const [newQuantity, setNewQuantity] = useState(1);
   const [newAvgPrice, setNewAvgPrice] = useState(0);
@@ -195,7 +203,7 @@ export default function N314() {
     }
   };
 
-  // TanStack Table for Screener
+  // Screener Table
   const columns = useMemo(() => [
     columnHelper.accessor('symbol', {
       header: 'Symbol',
@@ -221,7 +229,22 @@ export default function N314() {
       header: 'Volume',
       cell: info => info.getValue() ? (info.getValue()! / 1_000_000).toFixed(1) + 'M' : '—',
     }),
-  ], []);
+    columnHelper.accessor('symbol', {
+      id: 'watchlist',
+      header: 'Watch',
+      cell: info => {
+        const symbol = info.getValue();
+        return (
+          <button 
+            onClick={() => toggleWatchlist(symbol)}
+            className={`px-3 py-1 text-xs rounded-full ${isInWatchlist(symbol) ? 'bg-emerald-600' : 'bg-zinc-700 hover:bg-zinc-600'}`}
+          >
+            {isInWatchlist(symbol) ? '★' : '☆'}
+          </button>
+        );
+      },
+    }),
+  ], [watchlist]);
 
   const table = useReactTable({
     data: screenerData,
@@ -319,7 +342,7 @@ export default function N314() {
           </>
         )}
 
-        {/* IMPROVED SCREENER WITH TANSTACK TABLE */}
+        {/* SCREENER + WATCHLIST */}
         {activeTab === 'screener' && (
           <div>
             <div className="flex justify-between items-center mb-6">
@@ -336,7 +359,7 @@ export default function N314() {
             {screenerLoading ? (
               <div className="text-center py-20 text-zinc-400">Loading popular stocks...</div>
             ) : (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden mb-8">
                 <table className="w-full">
                   <thead className="bg-zinc-950 border-b border-zinc-800">
                     {table.getHeaderGroups().map(headerGroup => (
@@ -370,17 +393,50 @@ export default function N314() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-zinc-400">No stocks found.</td>
+                        <td colSpan={6} className="px-6 py-12 text-center text-zinc-400">No stocks found.</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
             )}
+
+            {/* Watchlist Section */}
+            <div>
+              <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                Watchlist <span className="text-sm text-zinc-400">({watchlist.length})</span>
+              </h3>
+              {watchlist.length === 0 ? (
+                <div className="text-center py-8 text-zinc-400 border border-zinc-800 rounded-3xl">No stocks in watchlist. Add from the table above.</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {watchlist.map(symbol => {
+                    const stock = screenerData.find(s => s.symbol === symbol);
+                    if (!stock) return null;
+                    const isPositive = (stock.regularMarketChangePercent || 0) >= 0;
+                    return (
+                      <div key={symbol} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex justify-between items-center">
+                        <div>
+                          <div className="font-mono font-semibold">{symbol}</div>
+                          <div className="text-sm text-zinc-400">{stock.shortName}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-mono">{stock.regularMarketPrice?.toLocaleString('en-IN')}</div>
+                          <div className={`text-sm ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {isPositive ? '+' : ''}{stock.regularMarketChangePercent?.toFixed(2)}%
+                          </div>
+                        </div>
+                        <button onClick={() => toggleWatchlist(symbol)} className="ml-4 text-red-400 hover:text-red-500">×</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {/* AI CHAT */}
+        {/* AI */}
         {activeTab === 'ai' && (
           <div className="max-w-3xl mx-auto">
             <div className="mb-6">
