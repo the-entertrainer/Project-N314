@@ -43,13 +43,14 @@ const POPULAR_SYMBOLS = [
   'LT.NS',
 ];
 
-async function fetchChart(symbol: string, range = '5d') {
+async function fetchChart(symbol: string, range = '5d', interval = '1d') {
   const encoded = encodeURIComponent(symbol);
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1d&range=${range}`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=${interval}&range=${range}`;
 
   const res = await fetch(url, {
     headers: { 'User-Agent': USER_AGENT },
-    next: { revalidate: 25 },
+    next: interval === '1d' ? { revalidate: 25 } : undefined,
+    cache: interval !== '1d' ? 'no-store' : undefined,
   });
 
   if (!res.ok) {
@@ -102,6 +103,46 @@ async function fetchQuotes(symbols: string[]) {
   return quotes;
 }
 
+function formatIntradayLabel(epochSec: number) {
+  return new Date(epochSec * 1000).toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
+async function fetchLiveSession(symbol: string) {
+  const result = await fetchChart(symbol, '1d', '5m');
+  const timestamps = result.timestamp || [];
+  const quotes = result.indicators?.quote?.[0] || {};
+  const meta = result.meta;
+
+  const points = timestamps
+    .map((time, i) => {
+      const close = quotes.close?.[i];
+      if (close == null || close === 0) return null;
+      return {
+        time: new Date(time * 1000).toISOString(),
+        label: formatIntradayLabel(time),
+        close,
+        volume: quotes.volume?.[i] ?? 0,
+      };
+    })
+    .filter((p): p is NonNullable<typeof p> => p !== null);
+
+  const livePrice = meta.regularMarketPrice ?? points[points.length - 1]?.close;
+  if (livePrice && points.length > 0) {
+    const last = points[points.length - 1];
+    last.close = livePrice;
+  }
+
+  return {
+    points,
+    quote: metaToQuote(meta),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type') || 'indices';
@@ -109,6 +150,16 @@ export async function GET(request: NextRequest) {
   const symbolsParam = searchParams.get('symbols');
 
   try {
+    if (type === 'live' && symbol) {
+      const live = await fetchLiveSession(symbol);
+      return NextResponse.json({
+        success: true,
+        data: live.points,
+        quote: live.quote,
+        updatedAt: live.updatedAt,
+      });
+    }
+
     if (type === 'historical' && symbol) {
       const result = await fetchChart(symbol, '1mo');
       const timestamps = result.timestamp || [];

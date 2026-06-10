@@ -11,22 +11,13 @@ import {
   createColumnHelper,
   SortingState,
 } from '@tanstack/react-table';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  CartesianGrid,
-} from 'recharts';
 import { ArrowDown, ArrowUp, Minus, Star, Trash2, X } from 'lucide-react';
 import { usePortfolioStore } from '../store/portfolioStore';
 import ThreeDOrb from '../components/ThreeDOrb';
 import AppShell, { AppTab } from '../components/AppShell';
 import IntelligenceReport from '../components/IntelligenceReport';
+import LiveMarketPanel from '../components/charts/LiveMarketPanel';
+import LivePriceTicker from '../components/LivePriceTicker';
 
 interface MarketQuote {
   symbol: string;
@@ -52,11 +43,6 @@ function formatIndexLabel(symbol?: string) {
     '^BSESN': 'SENSEX',
   };
   return labels[symbol || ''] || symbol?.replace('^', '') || '—';
-}
-
-function formatChartDate(date: string) {
-  const d = new Date(date);
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
 export default function N314() {
@@ -160,12 +146,14 @@ export default function N314() {
     };
     loadData();
 
+    const pollMs = activeTab === 'overview' ? 8000 : 30000;
     const interval = setInterval(() => {
       fetchMarketData();
       fetchPortfolioPrices();
-    }, 30000);
+      if (activeTab === 'overview') fetchHistorical();
+    }, pollMs);
     return () => clearInterval(interval);
-  }, [fetchPortfolioPrices]);
+  }, [fetchPortfolioPrices, activeTab]);
 
   useEffect(() => {
     fetchPortfolioPrices();
@@ -289,13 +277,6 @@ export default function N314() {
 
   const filteredRows = table.getRowModel().rows;
 
-  const chartTooltipStyle = {
-    backgroundColor: '#18181b',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '12px',
-    fontSize: '12px',
-  };
-
   return (
     <>
       <AnimatePresence>
@@ -349,9 +330,10 @@ export default function N314() {
                           <div className="text-xs text-zinc-500 tracking-wider uppercase truncate">
                             {formatIndexLabel(quote.symbol)}
                           </div>
-                          <div className="text-3xl sm:text-4xl font-mono tracking-tight mt-1 tabular-nums">
-                            {quote.regularMarketPrice?.toLocaleString('en-IN')}
-                          </div>
+                          <LivePriceTicker
+                            price={quote.regularMarketPrice}
+                            className="text-3xl sm:text-4xl font-mono tracking-tight mt-1 tabular-nums block"
+                          />
                         </div>
                         <div
                           className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
@@ -375,81 +357,7 @@ export default function N314() {
               </div>
             )}
 
-            <div>
-              <h3 className="text-lg sm:text-xl font-semibold tracking-tight mb-4">
-                NIFTY 50 · 30 Day Trend
-              </h3>
-              {historicalData.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="glass-card p-4 sm:p-5">
-                    <div className="text-xs text-zinc-400 mb-3 flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                      Closing Price
-                    </div>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <LineChart data={historicalData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                        <XAxis
-                          dataKey="date"
-                          stroke="#3f3f46"
-                          fontSize={10}
-                          tickFormatter={formatChartDate}
-                          interval="preserveStartEnd"
-                          minTickGap={24}
-                        />
-                        <YAxis
-                          stroke="#3f3f46"
-                          fontSize={10}
-                          domain={['auto', 'auto']}
-                          tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                          width={42}
-                        />
-                        <Tooltip contentStyle={chartTooltipStyle} />
-                        <Line
-                          type="monotone"
-                          dataKey="close"
-                          stroke="#10b981"
-                          strokeWidth={2.5}
-                          dot={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  <div className="glass-card p-4 sm:p-5">
-                    <div className="text-xs text-zinc-400 mb-3 flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-                      Volume
-                    </div>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={historicalData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                        <XAxis
-                          dataKey="date"
-                          stroke="#3f3f46"
-                          fontSize={10}
-                          tickFormatter={formatChartDate}
-                          interval="preserveStartEnd"
-                          minTickGap={24}
-                        />
-                        <YAxis
-                          stroke="#3f3f46"
-                          fontSize={10}
-                          tickFormatter={(v) => `${(v / 1e6).toFixed(0)}M`}
-                          width={42}
-                        />
-                        <Tooltip contentStyle={chartTooltipStyle} />
-                        <Bar dataKey="volume" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              ) : (
-                <div className="glass-card p-12 text-center text-zinc-400 text-sm">
-                  Loading chart data...
-                </div>
-              )}
-            </div>
+            <LiveMarketPanel historicalData={historicalData} />
           </div>
         )}
 

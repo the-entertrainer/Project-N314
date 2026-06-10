@@ -25,6 +25,7 @@ import {
   Loader2,
   Minus,
   Newspaper,
+  Radio,
   Search,
   Shield,
   Sparkles,
@@ -32,6 +33,11 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import type { AnalysisReport } from '../types/analysis';
+import { useLiveChartData } from '../hooks/useLiveChartData';
+import LivePriceChart from './charts/LivePriceChart';
+import LiveVolumeChart from './charts/LiveVolumeChart';
+import LivePriceTicker from './LivePriceTicker';
+
 
 const chartTooltip = {
   backgroundColor: '#18181b',
@@ -92,7 +98,16 @@ function ConfidenceRing({ value, errorMargin }: { value: number; errorMargin: nu
 }
 
 function ReportView({ report }: { report: AnalysisReport }) {
-  const { analysis, quote, technicals, chartSeries, news, globalIndices } = report;
+  const { analysis, technicals, chartSeries, news, globalIndices, symbol } = report;
+  const { points: livePoints, quote: liveQuote, tick, lastUpdated } = useLiveChartData({
+    symbol,
+    enabled: true,
+    intervalMs: 8000,
+  });
+
+  const quote = liveQuote
+    ? { ...report.quote, ...liveQuote, regularMarketPrice: liveQuote.regularMarketPrice }
+    : report.quote;
 
   const newsChartData = analysis.news_impacts.slice(0, 8).map((n) => ({
     name: n.headline.length > 28 ? n.headline.slice(0, 28) + '…' : n.headline,
@@ -143,7 +158,7 @@ function ReportView({ report }: { report: AnalysisReport }) {
       {/* Key metrics row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Price', value: `₹${quote.regularMarketPrice.toLocaleString('en-IN')}`, icon: Target },
+          { label: 'Price', live: true, value: quote.regularMarketPrice, icon: Target },
           {
             label: '7D Target',
             value: `₹${analysis.price_target_7d.toLocaleString('en-IN')}`,
@@ -159,16 +174,56 @@ function ReportView({ report }: { report: AnalysisReport }) {
             value: technicals.rsi?.toFixed(1) ?? '—',
             icon: Brain,
           },
-        ].map(({ label, value, icon: Icon }) => (
+        ].map(({ label, value, icon: Icon, live }) => (
           <div key={label} className="glass-card p-4">
             <div className="flex items-center gap-2 text-xs text-zinc-500 mb-1">
               <Icon className="w-3.5 h-3.5" />
               {label}
+              {live && (
+                <span className="flex items-center gap-1 text-emerald-400">
+                  <Radio className="w-2.5 h-2.5 animate-pulse" />
+                </span>
+              )}
             </div>
-            <div className="text-lg font-mono font-semibold">{value}</div>
+            <div className="text-lg font-mono font-semibold">
+              {live ? (
+                <>
+                  ₹<LivePriceTicker price={value as number} className="text-emerald-400" />
+                </>
+              ) : (
+                value
+              )}
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Live intraday session */}
+      {livePoints.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="glass-card p-4 sm:p-5">
+            <div className="text-xs text-zinc-400 mb-3 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span className="live-pulse-dot" />
+                Live Intraday Price
+              </span>
+              {lastUpdated && (
+                <span className="text-[10px] text-zinc-500">
+                  {lastUpdated.toLocaleTimeString('en-IN')}
+                </span>
+              )}
+            </div>
+            <LivePriceChart data={livePoints} animationKey={tick} height={220} />
+          </div>
+          <div className="glass-card p-4 sm:p-5">
+            <div className="text-xs text-zinc-400 mb-3 flex items-center gap-2">
+              <span className="live-pulse-dot bg-blue-500" />
+              Live Session Volume
+            </div>
+            <LiveVolumeChart data={livePoints} animationKey={tick} height={220} />
+          </div>
+        </div>
+      )}
 
       {/* Price chart with SMAs */}
       <div className="glass-card p-4 sm:p-5">
@@ -182,10 +237,10 @@ function ReportView({ report }: { report: AnalysisReport }) {
             <XAxis dataKey="date" tickFormatter={formatDate} stroke="#52525b" fontSize={10} minTickGap={30} />
             <YAxis stroke="#52525b" fontSize={10} domain={['auto', 'auto']} width={50} />
             <Tooltip contentStyle={chartTooltip} />
-            <Area type="monotone" dataKey="close" fill="#10b981" fillOpacity={0.08} stroke="none" />
-            <Line type="monotone" dataKey="close" stroke="#10b981" strokeWidth={2.5} dot={false} name="Close" />
-            <Line type="monotone" dataKey="sma50" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 4" name="SMA 50" connectNulls />
-            <Line type="monotone" dataKey="sma200" stroke="#ef4444" strokeWidth={1.5} dot={false} strokeDasharray="4 4" name="SMA 200" connectNulls />
+            <Area type="monotone" dataKey="close" fill="#10b981" fillOpacity={0.08} stroke="none" isAnimationActive animationDuration={2000} animationEasing="ease-in-out" />
+            <Line type="monotone" dataKey="close" stroke="#10b981" strokeWidth={2.5} dot={false} name="Close" isAnimationActive animationDuration={2200} animationEasing="ease-in-out" />
+            <Line type="monotone" dataKey="sma50" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 4" name="SMA 50" connectNulls isAnimationActive animationDuration={2200} animationEasing="ease-in-out" />
+            <Line type="monotone" dataKey="sma200" stroke="#ef4444" strokeWidth={1.5} dot={false} strokeDasharray="4 4" name="SMA 200" connectNulls isAnimationActive animationDuration={2200} animationEasing="ease-in-out" />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -202,7 +257,7 @@ function ReportView({ report }: { report: AnalysisReport }) {
               <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" />
               <ReferenceLine y={30} stroke="#10b981" strokeDasharray="3 3" />
               <Tooltip contentStyle={chartTooltip} />
-              <Line type="monotone" dataKey="rsi" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="rsi" stroke="#8b5cf6" strokeWidth={2} dot={false} isAnimationActive animationDuration={2000} animationEasing="ease-in-out" />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -225,8 +280,8 @@ function ReportView({ report }: { report: AnalysisReport }) {
                     />
                   ))}
               </Bar>
-              <Line type="monotone" dataKey="macd" stroke="#06b6d4" strokeWidth={1.5} dot={false} name="MACD" />
-              <Line type="monotone" dataKey="macdSignal" stroke="#ec4899" strokeWidth={1.5} dot={false} name="Signal" />
+              <Line type="monotone" dataKey="macd" stroke="#06b6d4" strokeWidth={1.5} dot={false} name="MACD" isAnimationActive animationDuration={2000} animationEasing="ease-in-out" />
+              <Line type="monotone" dataKey="macdSignal" stroke="#ec4899" strokeWidth={1.5} dot={false} name="Signal" isAnimationActive animationDuration={2000} animationEasing="ease-in-out" />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
